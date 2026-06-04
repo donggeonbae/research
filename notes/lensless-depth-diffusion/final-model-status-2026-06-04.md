@@ -73,26 +73,30 @@ Interpretation:
 - Learning rate for continuation: `5e-5`.
 - W&B project: `lensless-depth-diffusion`.
 - Latest continuation checkpoint verified in the run directory: step 225,000.
-- Latest train-log state observed: approximately step 234,420 on 2026-06-04 UTC.
-- A full 6,000-sample evaluation of step 225,000 is running as an intermediate convergence check.
+- Latest train-log state observed: approximately step 244,780 on 2026-06-04 UTC.
+- Full 6,000-sample evaluations of steps 225,000, 230,000, and 235,000 are running as intermediate convergence checks.
 - A post-training full-6,000-sample evaluation watcher is configured for the 330,000-step `latest.pt`.
 
 The final paper/poster table should not replace the Ours row until the 330,000-step checkpoint and the full 6,000-sample evaluation are complete.
 
-## Intermediate 225k Partial Evaluation
+## Intermediate Partial Evaluations
 
-The 225,000-step checkpoint has reached the first partial evaluation milestone. This is useful as a convergence signal but should not replace the full-test paper row.
+The final5epoch continuation has reached multiple partial evaluation milestones. These are useful as convergence signals but should not replace the full-test paper row.
 
 | Checkpoint | Eval progress | fg delta1 | fg delta2 | fg delta3 | fg MAE | fg AbsRel |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Physics-only focus/deconv | first 500 / 6,000 | 0.390 | 0.621 | 0.822 | 0.214 | 0.420 |
+| Physics-only focus/deconv | first 1,000 / 6,000 | 0.391 | 0.618 | 0.817 | 0.214 | 0.423 |
 | Ours v15, step 225k | first 500 / 6,000 | 0.883 | 0.924 | 0.942 | 0.0516 | 0.119 |
+| Ours v15, step 225k | first 1,000 / 6,000 | 0.880 | 0.921 | 0.939 | 0.0528 | 0.122 |
+| Ours v15, step 230k | first 500 / 6,000 | 0.869 | 0.912 | 0.932 | 0.0543 | 0.124 |
+| Ours v15, step 235k | first 500 / 6,000 | 0.864 | 0.910 | 0.929 | 0.0579 | 0.126 |
 
 Interpretation:
 
 - The intermediate checkpoint remains clearly above the physics-only focus baseline.
-- The 500-sample partial metric is stronger than the 195k full-test Ours row on delta thresholds, but this is not a controlled full-test comparison yet.
-- The paper/poster should wait for `eval_step_0225000_full6k.json` before reporting step 225k, and for the final 330k evaluation before deciding the selected `Ours` checkpoint.
+- The best partial so far is step 225k; steps 230k and 235k are weaker on their first 500 samples.
+- This suggests extended training may be starting to overfit or drift, but only the full 6,000-sample results can decide the selected `Ours` checkpoint.
+- The paper/poster should wait for the full eval JSON files before replacing the 195k full-test row.
 
 ## Cross-Repo Artifacts
 
