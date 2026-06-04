@@ -51,7 +51,7 @@ Current selected final family:
 
 ## Current Evidence
 
-Full-test evidence currently available for v15 includes the 225,000-, 230,000-, and 235,000-step continuation checkpoints. The 225k checkpoint improves the previous 195k Ours row and remains the current best physics-integrated diffusion checkpoint; 230k and 235k are weaker on the full 6,000-sample test. The 330,000-step final training run is still active and will be evaluated after training exits. This note is intentionally overwritten at the same URL as new full-test results arrive.
+Full-test evidence currently available for v15 includes the 225,000-, 230,000-, and 235,000-step continuation checkpoints. The 225k checkpoint improves the previous 195k Ours row and remains the current best physics-integrated diffusion checkpoint; 230k and 235k are weaker on the full 6,000-sample test. The 330,000-step final checkpoint has been created and its 4-GPU sharded full-test evaluation is running. This note is intentionally overwritten at the same URL as new full-test results arrive.
 
 | Method | Train state | Test size | fg delta1 | fg delta2 | fg delta3 | fg MAE | fg AbsRel |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -76,13 +76,13 @@ Interpretation:
 - Final target: 330,000 steps, equal to 5.0 epochs.
 - Learning rate for continuation: `5e-5`.
 - W&B project: `lensless-depth-diffusion`.
-- Latest continuation checkpoint verified in the run directory: step 325,000.
-- Latest train-log state observed: approximately step 327,360 on 2026-06-04 UTC.
+- Latest continuation checkpoint verified in the run directory: step 330,000.
+- Latest train-log state observed: step 330,000 on 2026-06-04 UTC.
 - Full 6,000-sample evaluation of step 225,000 has completed.
 - Full 6,000-sample evaluations of steps 230,000 and 235,000 have completed as intermediate convergence checks.
-- A post-training full-6,000-sample evaluation watcher is configured for the 330,000-step `latest.pt`.
+- A 4-GPU sharded full-6,000-sample evaluation is running for the 330,000-step `latest.pt`.
 
-The final paper/poster table should not replace the Ours row until the 330,000-step checkpoint and the full 6,000-sample evaluation are complete.
+The final paper/poster table should not replace the Ours row until the 330,000-step full 6,000-sample evaluation is complete.
 
 ## Intermediate Partial Evaluations
 
