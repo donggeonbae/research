@@ -173,7 +173,8 @@ The project artifacts are now split across the public research-system repositori
 | Artifact | URL or path | Status |
 | --- | --- | --- |
 | Research status HTML | `https://donggeonbae.github.io/research/projects/lensless-depth-diffusion-final-model-status/` | Active canonical link; overwrite on every result update |
-| Figure set HTML | `https://donggeonbae.github.io/figure/projects/lensless-depth-diffusion-figure-set/` | Files pushed to `main` and `gh-pages`; public Pages currently returns 404 |
+| Figure set HTML | `https://donggeonbae.github.io/figure/projects/lensless-depth-diffusion-figure-set/` | Files pushed to `main` and `gh-pages`; public Pages currently returns 404 because the figure repo is not visible to public API/Pages |
+| Figure set HTML mirror | `https://donggeonbae.github.io/research/projects/lensless-depth-diffusion-figure-set/` | Public fallback mirror with the same encrypted figure payload |
 | Presentation poster HTML | `https://donggeonbae.github.io/presentation/projects/lensless-depth-diffusion-poster/` | Active encrypted poster archive |
 | Manuscript status HTML | `https://donggeonbae.github.io/writing/projects/lensless-depth-diffusion-manuscript-status/` | Active encrypted writing archive |
 | Working paper PDF | `paper/main.pdf` in the training project | Rebuilt after adding the real-adaptive learnable deconvolution diagnostic |
