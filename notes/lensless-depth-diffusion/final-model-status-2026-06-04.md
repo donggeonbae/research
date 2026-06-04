@@ -30,7 +30,8 @@ The project is motivated by three source clusters:
 - Train split: 66,000 RGB/depth pairs verified locally on 2026-06-04.
 - Test split: 6,000 RGB/depth pairs verified locally on 2026-06-04.
 - PSF stack: 42 planes.
-- No measured lensless raw image split is currently treated as canonical evidence; synthetic lensless measurements are generated from RGB/depth/PSF physics.
+- Synthetic lensless measurements are generated from RGB/depth/PSF physics for the canonical full-test metrics.
+- Real captured validation folders are now used as a pseudo-label diagnostic only; the available references are pseudo color/depth labels, not independently measured GT depth.
 - One training epoch equals 66,000 optimizer steps because the current final configuration uses batch size 1.
 
 ## Selected Final Model Policy
@@ -85,6 +86,19 @@ Interpretation:
 - The 4-GPU sharded full-6,000-sample evaluation for the 330,000-step `latest.pt` has completed.
 
 The paper/poster table now reports the final 330k `Ours` row.
+
+## Real-Capture Diagnostic
+
+Measured raw captures were added from the real validation folders under the HJC graphics project path. We resized the captured raw frames to the PSF/model resolution and compared physics focus, raw U-Net, deconvolution U-Net, FlatNet3D-style, supervised teacher, and denoised Ours against the provided pseudo-depth labels.
+
+These numbers are not canonical GT metrics. They are a domain-gap diagnostic:
+
+| Split | Samples | Best strict delta1 | Best loose delta3 | Ours delta1 | Ours delta3 | Main observation |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| 20250505 real validation | 20 | FlatNet3D-style 0.428 | Physics focus 0.852 | 0.338 | 0.640 | Synthetic-trained Ours shows a right-side high-depth bias on several real captures. |
+| 20250527 real subset | 32 | Raw U-Net 0.288 | Physics focus 0.662 | 0.198 | 0.390 | All learned models show substantial real-domain mismatch against pseudo labels. |
+
+The manuscript now includes a real-capture comparison figure and a discussion paragraph stating that sensor/exposure/PSF calibration must be handled before real captures can support the headline claim.
 
 ## Intermediate Partial Evaluations
 
