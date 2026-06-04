@@ -73,11 +73,26 @@ Interpretation:
 - Learning rate for continuation: `5e-5`.
 - W&B project: `lensless-depth-diffusion`.
 - Latest continuation checkpoint verified in the run directory: step 225,000.
-- Latest train-log state observed: approximately step 229,700 on 2026-06-04 UTC.
+- Latest train-log state observed: approximately step 234,420 on 2026-06-04 UTC.
 - A full 6,000-sample evaluation of step 225,000 is running as an intermediate convergence check.
 - A post-training full-6,000-sample evaluation watcher is configured for the 330,000-step `latest.pt`.
 
 The final paper/poster table should not replace the Ours row until the 330,000-step checkpoint and the full 6,000-sample evaluation are complete.
+
+## Intermediate 225k Partial Evaluation
+
+The 225,000-step checkpoint has reached the first partial evaluation milestone. This is useful as a convergence signal but should not replace the full-test paper row.
+
+| Checkpoint | Eval progress | fg delta1 | fg delta2 | fg delta3 | fg MAE | fg AbsRel |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Physics-only focus/deconv | first 500 / 6,000 | 0.390 | 0.621 | 0.822 | 0.214 | 0.420 |
+| Ours v15, step 225k | first 500 / 6,000 | 0.883 | 0.924 | 0.942 | 0.0516 | 0.119 |
+
+Interpretation:
+
+- The intermediate checkpoint remains clearly above the physics-only focus baseline.
+- The 500-sample partial metric is stronger than the 195k full-test Ours row on delta thresholds, but this is not a controlled full-test comparison yet.
+- The paper/poster should wait for `eval_step_0225000_full6k.json` before reporting step 225k, and for the final 330k evaluation before deciding the selected `Ours` checkpoint.
 
 ## Cross-Repo Artifacts
 
