@@ -67,7 +67,7 @@ The real validation data exposed a synthetic-to-real gap: fixed deconvolution am
 ## Figure And Writing Status
 
 - Architecture figure was rebuilt as a deterministic paper figure using real project tensors, not a generated placeholder.
-- Architecture now explicitly shows the latent encoder/decoder, denoising U-Net, learnable PSF-Wiener bank, focus likelihood, latent correction, and depth-guided fusion.
+- Architecture now explicitly shows the latent encoder/decoder, denoising U-Net, learnable PSF-Wiener bank, focus likelihood, latent correction, depth-guided fusion, and validation-only real-adaptation diagnostic.
 - Deconvolution feature figure uses only mid/late planes `z={14,22,30,38}` because early planes were visually weak.
 - Qualitative depth result panel shows RGB, GT depth, physics focus, and `Ours`; teacher and pure error maps are omitted.
 - Paper and poster tables now report the final `Ours / Proposed` full-6k aggregate.
