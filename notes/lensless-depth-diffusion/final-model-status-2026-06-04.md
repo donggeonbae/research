@@ -73,7 +73,7 @@ Interpretation:
 - Learning rate for continuation: `5e-5`.
 - W&B project: `lensless-depth-diffusion`.
 - Latest continuation checkpoint verified in the run directory: step 225,000.
-- Latest train-log state observed: approximately step 274,980 on 2026-06-04 UTC.
+- Latest train-log state observed: approximately step 289,040 on 2026-06-04 UTC.
 - Full 6,000-sample evaluations of steps 225,000, 230,000, and 235,000 are running as intermediate convergence checks.
 - A post-training full-6,000-sample evaluation watcher is configured for the 330,000-step `latest.pt`.
 
@@ -91,14 +91,17 @@ The final5epoch continuation has reached multiple partial evaluation milestones.
 | Ours v15, step 225k | first 1,500 / 6,000 | 0.880 | 0.922 | 0.940 | 0.0524 | 0.121 |
 | Ours v15, step 225k | first 2,000 / 6,000 | 0.880 | 0.921 | 0.939 | 0.0534 | 0.122 |
 | Ours v15, step 225k | first 3,000 / 6,000 | 0.878 | 0.920 | 0.938 | 0.0536 | 0.123 |
+| Ours v15, step 225k | first 4,000 / 6,000 | 0.877 | 0.919 | 0.937 | 0.0538 | 0.124 |
 | Ours v15, step 230k | first 500 / 6,000 | 0.869 | 0.912 | 0.932 | 0.0543 | 0.124 |
 | Ours v15, step 230k | first 1,000 / 6,000 | 0.867 | 0.910 | 0.930 | 0.0552 | 0.127 |
 | Ours v15, step 230k | first 1,500 / 6,000 | 0.867 | 0.911 | 0.930 | 0.0548 | 0.126 |
 | Ours v15, step 230k | first 2,500 / 6,000 | 0.866 | 0.909 | 0.929 | 0.0558 | 0.127 |
+| Ours v15, step 230k | first 3,500 / 6,000 | 0.865 | 0.908 | 0.928 | 0.0560 | 0.128 |
 | Ours v15, step 235k | first 500 / 6,000 | 0.864 | 0.910 | 0.929 | 0.0579 | 0.126 |
 | Ours v15, step 235k | first 1,000 / 6,000 | 0.860 | 0.906 | 0.925 | 0.0591 | 0.129 |
 | Ours v15, step 235k | first 1,500 / 6,000 | 0.860 | 0.907 | 0.926 | 0.0587 | 0.128 |
 | Ours v15, step 235k | first 2,500 / 6,000 | 0.859 | 0.905 | 0.924 | 0.0599 | 0.129 |
+| Ours v15, step 235k | first 3,000 / 6,000 | 0.858 | 0.904 | 0.924 | 0.0600 | 0.130 |
 
 Interpretation:
 
