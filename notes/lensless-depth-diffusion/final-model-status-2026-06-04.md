@@ -73,7 +73,7 @@ Interpretation:
 - Learning rate for continuation: `5e-5`.
 - W&B project: `lensless-depth-diffusion`.
 - Latest continuation checkpoint verified in the run directory: step 225,000.
-- Latest train-log state observed: approximately step 244,780 on 2026-06-04 UTC.
+- Latest train-log state observed: approximately step 253,400 on 2026-06-04 UTC.
 - Full 6,000-sample evaluations of steps 225,000, 230,000, and 235,000 are running as intermediate convergence checks.
 - A post-training full-6,000-sample evaluation watcher is configured for the 330,000-step `latest.pt`.
 
@@ -88,13 +88,16 @@ The final5epoch continuation has reached multiple partial evaluation milestones.
 | Physics-only focus/deconv | first 1,000 / 6,000 | 0.391 | 0.618 | 0.817 | 0.214 | 0.423 |
 | Ours v15, step 225k | first 500 / 6,000 | 0.883 | 0.924 | 0.942 | 0.0516 | 0.119 |
 | Ours v15, step 225k | first 1,000 / 6,000 | 0.880 | 0.921 | 0.939 | 0.0528 | 0.122 |
+| Ours v15, step 225k | first 1,500 / 6,000 | 0.880 | 0.922 | 0.940 | 0.0524 | 0.121 |
 | Ours v15, step 230k | first 500 / 6,000 | 0.869 | 0.912 | 0.932 | 0.0543 | 0.124 |
+| Ours v15, step 230k | first 1,000 / 6,000 | 0.867 | 0.910 | 0.930 | 0.0552 | 0.127 |
 | Ours v15, step 235k | first 500 / 6,000 | 0.864 | 0.910 | 0.929 | 0.0579 | 0.126 |
+| Ours v15, step 235k | first 1,000 / 6,000 | 0.860 | 0.906 | 0.925 | 0.0591 | 0.129 |
 
 Interpretation:
 
 - The intermediate checkpoint remains clearly above the physics-only focus baseline.
-- The best partial so far is step 225k; steps 230k and 235k are weaker on their first 500 samples.
+- The best partial so far is step 225k; steps 230k and 235k remain weaker after their first 1,000 samples.
 - This suggests extended training may be starting to overfit or drift, but only the full 6,000-sample results can decide the selected `Ours` checkpoint.
 - The paper/poster should wait for the full eval JSON files before replacing the 195k full-test row.
 
