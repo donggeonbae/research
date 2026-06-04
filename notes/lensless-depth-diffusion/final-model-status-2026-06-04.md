@@ -2,13 +2,13 @@
 
 ## Metadata
 
-- Research ID: `lensless-depth-diffusion/2026/final-v15-physics-integrated-ldm`
+- Research ID: `lensless-depth-diffusion/2026/final-v15-plus-realadapt-learnable-deconv`
 - Topic: physics-integrated latent diffusion for lensless depth estimation
 - Note type: method/status/evidence note
 - Last updated: 2026-06-04
 - Working project: local lensless-depth-diffusion training workspace
 - Related review note: none yet; this file is the research source note
-- Related writing target: final project paper and poster
+- Related writing target: final project paper, poster, and real-capture diagnostic update
 - Public report URL: `https://donggeonbae.github.io/research/projects/lensless-depth-diffusion-final-model-status/`
 
 ## Research Question
@@ -50,6 +50,13 @@ Current selected final family:
 - DAPS-lite posterior guidance/refinement is used during reverse diffusion.
 - Depth-guided fusion of deconvolution planes produces all-in-focus RGB for reconstruction checks.
 
+New real-capture diagnostic branch:
+
+- `Ours-RealAdapt` is the update responding to the measured validation artifacts.
+- It is not relabeled as final `Ours`, because it is supervised real-domain fitting rather than a latent diffusion sampler.
+- It replaces fixed Wiener inversion with a learnable Wiener bank: denominator offset, numerator scale, per-plane gain/bias, and a residual artifact-suppression adapter.
+- It is trained against real pseudo-depth labels so the validation panels track pseudo labels more closely and reduce fixed inverse artifacts such as vertical stripe structure.
+
 ## Current Evidence
 
 Full-test evidence for v15 now includes the 195,000-, 225,000-, 230,000-, 235,000-, and final 330,000-step checkpoints. The 330k checkpoint is selected as final `Ours`: it improves over the 225k checkpoint on foreground delta2, delta3, MAE, AbsRel, RMSE, and boundary MAE, while foreground delta1 is slightly lower. This note is intentionally overwritten at the same URL as new report artifacts arrive.
@@ -87,18 +94,37 @@ Interpretation:
 
 The paper/poster table now reports the final 330k `Ours` row.
 
+## Learnable Deconvolution Update
+
+The fixed PSF inverse was too brittle on measured validation data. In particular, fixed deconvolution amplified structured vertical artifacts, and those artifacts were passed downstream as false depth evidence. The current update adds a real-adaptive learnable inverse branch:
+
+| Component | Role |
+| --- | --- |
+| Learnable Wiener bank | Starts from the PSF-stack inverse but learns per-plane denominator offsets, numerator scales, gains, and biases. |
+| Residual artifact adapter | Suppresses fixed-pattern deconvolution artifacts while preserving the initial inverse as an identity-start residual path. |
+| Depth U-Net head | Predicts pseudo-depth from the adapted deconvolution volume. |
+| Losses | L1, SILog, gradient, edge-aware smoothness, Laplacian, vertical-stripe penalty, adapter identity regularization, and Wiener parameter regularization. |
+
+Training evidence:
+
+- Run name: `real_learnable_deconv_v1_20250527_to_20250505`
+- W&B run: `https://wandb.ai/oisl/lensless-depth-diffusion/runs/ba5mlknz`
+- Training length: 30 epochs on the 20250527 real pseudo-label split.
+- Selected checkpoint: best validation checkpoint at epoch 15, selected by foreground MAE on 20250505 pseudo labels.
+- Best validation on 20250505 during training: foreground MAE 0.267, delta1 0.365, delta3 0.640, boundary MAE 0.275.
+
 ## Real-Capture Diagnostic
 
 Measured raw captures were added from the real validation folders under the HJC graphics project path. We resized the captured raw frames to the PSF/model resolution and compared physics focus, raw U-Net, deconvolution U-Net, FlatNet3D-style, supervised teacher, and denoised Ours against the provided pseudo-depth labels.
 
 These numbers are not canonical GT metrics. They are a domain-gap diagnostic:
 
-| Split | Samples | Best strict delta1 | Best loose delta3 | Ours delta1 | Ours delta3 | Main observation |
-| --- | ---: | ---: | ---: | ---: | ---: | --- |
-| 20250505 real validation | 20 | FlatNet3D-style 0.428 | Physics focus 0.852 | 0.338 | 0.640 | Synthetic-trained Ours shows a right-side high-depth bias on several real captures. |
-| 20250527 real subset | 32 | Raw U-Net 0.288 | Physics focus 0.662 | 0.198 | 0.390 | All learned models show substantial real-domain mismatch against pseudo labels. |
+| Split | Samples | Physics focus MAE / d1 / d3 | Diffusion Ours MAE / d1 / d3 | Ours-RealAdapt MAE / d1 / d3 | Main observation |
+| --- | ---: | ---: | ---: | ---: | --- |
+| 20250505 real validation | 20 | 0.230 / 0.294 / 0.852 | 0.365 / 0.337 / 0.639 | 0.264 / 0.382 / 0.648 | Learnable deconvolution improves the learned models and suppresses artifacts, but physics focus still has the lowest MAE on this pseudo-label split. |
+| 20250527 real subset | 32 | 0.291 / 0.218 / 0.662 | 0.419 / 0.198 / 0.390 | 0.177 / 0.363 / 0.692 | Real-adaptive learnable deconvolution is clearly strongest on the real pseudo-label domain used for adaptation. |
 
-The manuscript now includes a real-capture comparison figure and a discussion paragraph stating that sensor/exposure/PSF calibration must be handled before real captures can support the headline claim.
+The manuscript now includes real-capture comparison figures with `Ours-RealAdapt` and a discussion paragraph stating that sensor/exposure/PSF calibration must be handled before real captures can support the headline claim. The 20250505 panel is used in the paper; the 20250527 subset panel is archived in the figure repo for presentation and follow-up analysis.
 
 ## Intermediate Partial Evaluations
 
@@ -150,8 +176,8 @@ The project artifacts are now split across the public research-system repositori
 | Figure set HTML | `https://donggeonbae.github.io/figure/projects/lensless-depth-diffusion-figure-set/` | Files pushed to `main` and `gh-pages`; public Pages currently returns 404 |
 | Presentation poster HTML | `https://donggeonbae.github.io/presentation/projects/lensless-depth-diffusion-poster/` | Active encrypted poster archive |
 | Manuscript status HTML | `https://donggeonbae.github.io/writing/projects/lensless-depth-diffusion-manuscript-status/` | Active encrypted writing archive |
-| Working paper PDF | `paper/main.pdf` in the training project | Updated to final v15 330k full-test metrics |
-| Working poster PDF | `poster/poster.pdf` in the training project | Updated to final v15 330k full-test metrics |
+| Working paper PDF | `paper/main.pdf` in the training project | Rebuilt after adding the real-adaptive learnable deconvolution diagnostic |
+| Working poster PDF | `poster/poster.pdf` in the training project | Rebuilt after adding the real-adaptive learnable deconvolution diagnostic |
 
 Local `.env.local` files in the archive repos define `REPORT_PASSWORD=4716` and are intentionally untracked.
 
@@ -164,6 +190,7 @@ Current figure policy:
 - Use clean result panels with RGB, GT depth, physics baseline, and Ours.
 - Do not show teacher output as the primary qualitative result unless explicitly labeled as an upper-bound baseline.
 - Architecture figure should show latent encoder/decoder, denoising UNet, PSF/deconvolution conditioning, and reverse-diffusion guidance.
+- Real-data comparison figures should include `Ours-RealAdapt` next to synthetic-trained diffusion `Ours`, so the validation artifact fix is visible without redefining the final diffusion method.
 - The figure repo now contains separate specs for architecture, deconvolution focus planes, and depth-result panels, following the local `templates/figure-spec.md` structure.
 - The presentation repo now contains a poster planning/archive file following `templates/poster.md`, with background, method, result, speaker-script, and export-checklist sections.
 
@@ -173,6 +200,7 @@ Current figure policy:
 - Is the DAPS-lite posterior guidance improving the diffusion model beyond static deconvolution conditioning, or mostly improving methodological alignment and interpretability?
 - Can per-depth Wiener parameter selection improve early/mid deconvolution planes without making late planes worse?
 - Should the final paper report the supervised teacher only as an upper-bound baseline, or include it in the main comparison table with a clear `not Ours` label?
+- Should the next true diffusion model absorb the `Ours-RealAdapt` inverse parameters into the reverse sampler, rather than keeping real adaptation as a supervised diagnostic branch?
 
 ## Next Verification Steps
 
@@ -181,4 +209,5 @@ Current figure policy:
 3. The 330k checkpoint is selected as final `Ours`.
 4. Paper table, poster table, and qualitative figures have been updated.
 5. Final paper and poster PDFs have been rebuilt.
-6. Remaining cleanup: final citation metadata review and optional vector redraw of the architecture figure.
+6. Real-capture panels and archive pages have been updated with `Ours-RealAdapt`.
+7. Remaining cleanup: final citation metadata review and optional vector redraw of the architecture figure.
