@@ -52,7 +52,7 @@ Current selected final family:
 
 ## Current Evidence
 
-Full-test evidence currently available for v15 uses the 195,000-step checkpoint, equal to approximately 2.95 epochs. A 225,000-step full-test evaluation and a 330,000-step final training run are active, so this note should be overwritten at the same URL when those results finish.
+Full-test evidence currently available for v15 uses the 195,000-step checkpoint, equal to approximately 2.95 epochs. Full 6,000-sample evaluations of the 225k, 230k, and 235k checkpoints are active, and the 330,000-step final training run is still running. This note is intentionally overwritten at the same URL as new full-test results arrive.
 
 | Method | Train state | Test size | fg delta1 | fg delta2 | fg delta3 | fg MAE | fg AbsRel |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -72,8 +72,8 @@ Interpretation:
 - Final target: 330,000 steps, equal to 5.0 epochs.
 - Learning rate for continuation: `5e-5`.
 - W&B project: `lensless-depth-diffusion`.
-- Latest continuation checkpoint verified in the run directory: step 225,000.
-- Latest train-log state observed: approximately step 289,040 on 2026-06-04 UTC.
+- Latest continuation checkpoint verified in the run directory: step 300,000.
+- Latest train-log state observed: step 304,180 on 2026-06-04 UTC.
 - Full 6,000-sample evaluations of steps 225,000, 230,000, and 235,000 are running as intermediate convergence checks.
 - A post-training full-6,000-sample evaluation watcher is configured for the 330,000-step `latest.pt`.
 
@@ -92,22 +92,25 @@ The final5epoch continuation has reached multiple partial evaluation milestones.
 | Ours v15, step 225k | first 2,000 / 6,000 | 0.880 | 0.921 | 0.939 | 0.0534 | 0.122 |
 | Ours v15, step 225k | first 3,000 / 6,000 | 0.878 | 0.920 | 0.938 | 0.0536 | 0.123 |
 | Ours v15, step 225k | first 4,000 / 6,000 | 0.877 | 0.919 | 0.937 | 0.0538 | 0.124 |
+| Ours v15, step 225k | first 5,000 / 6,000 | 0.877 | 0.919 | 0.937 | 0.0538 | 0.124 |
 | Ours v15, step 230k | first 500 / 6,000 | 0.869 | 0.912 | 0.932 | 0.0543 | 0.124 |
 | Ours v15, step 230k | first 1,000 / 6,000 | 0.867 | 0.910 | 0.930 | 0.0552 | 0.127 |
 | Ours v15, step 230k | first 1,500 / 6,000 | 0.867 | 0.911 | 0.930 | 0.0548 | 0.126 |
 | Ours v15, step 230k | first 2,500 / 6,000 | 0.866 | 0.909 | 0.929 | 0.0558 | 0.127 |
 | Ours v15, step 230k | first 3,500 / 6,000 | 0.865 | 0.908 | 0.928 | 0.0560 | 0.128 |
+| Ours v15, step 230k | first 4,500 / 6,000 | 0.864 | 0.908 | 0.928 | 0.0562 | 0.129 |
 | Ours v15, step 235k | first 500 / 6,000 | 0.864 | 0.910 | 0.929 | 0.0579 | 0.126 |
 | Ours v15, step 235k | first 1,000 / 6,000 | 0.860 | 0.906 | 0.925 | 0.0591 | 0.129 |
 | Ours v15, step 235k | first 1,500 / 6,000 | 0.860 | 0.907 | 0.926 | 0.0587 | 0.128 |
 | Ours v15, step 235k | first 2,500 / 6,000 | 0.859 | 0.905 | 0.924 | 0.0599 | 0.129 |
 | Ours v15, step 235k | first 3,000 / 6,000 | 0.858 | 0.904 | 0.924 | 0.0600 | 0.130 |
+| Ours v15, step 235k | first 4,000 / 6,000 | 0.857 | 0.903 | 0.923 | 0.0602 | 0.131 |
 
 Interpretation:
 
 - The intermediate checkpoint remains clearly above the physics-only focus baseline.
-- The best partial so far is step 225k; steps 230k and 235k remain weaker after their first 1,000 samples.
-- At the 3,000-sample halfway point, step 225k remains above the 195k full-test Ours row on delta thresholds and MAE, but full-test completion is still required.
+- The best partial so far is step 225k; steps 230k and 235k remain weaker as their evaluation sets grow.
+- At 5,000 evaluated test samples, step 225k remains above the 195k full-test Ours row on delta thresholds and MAE, but full-test completion is still required.
 - This suggests extended training may be starting to overfit or drift, but only the full 6,000-sample results can decide the selected `Ours` checkpoint.
 - The paper/poster should wait for the full eval JSON files before replacing the 195k full-test row.
 
