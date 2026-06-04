@@ -9,6 +9,8 @@
 - Working project: local lensless-depth-diffusion training workspace
 - Related review note: none yet; this file is the research source note
 - Related writing target: final project paper and poster
+- Public report URL: `https://donggeonbae.github.io/research/projects/lensless-depth-diffusion-final-model-status/`
+- Archive password: local project default `4716`
 
 ## Research Question
 
@@ -50,7 +52,7 @@ Current selected final family:
 
 ## Current Evidence
 
-Full-test evidence currently available for v15 uses the 195,000-step checkpoint, equal to approximately 2.95 epochs.
+Full-test evidence currently available for v15 uses the 195,000-step checkpoint, equal to approximately 2.95 epochs. A 225,000-step full-test evaluation and a 330,000-step final training run are active, so this note should be overwritten at the same URL when those results finish.
 
 | Method | Train state | Test size | fg delta1 | fg delta2 | fg delta3 | fg MAE | fg AbsRel |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -70,10 +72,27 @@ Interpretation:
 - Final target: 330,000 steps, equal to 5.0 epochs.
 - Learning rate for continuation: `5e-5`.
 - W&B project: `lensless-depth-diffusion`.
-- First continuation checkpoint verified: step 200,000.
-- A post-training full-6k evaluation watcher is configured in the working project.
+- Latest continuation checkpoint verified in the run directory: step 225,000.
+- Latest train-log state observed: approximately step 229,700 on 2026-06-04 UTC.
+- A full 6,000-sample evaluation of step 225,000 is running as an intermediate convergence check.
+- A post-training full-6,000-sample evaluation watcher is configured for the 330,000-step `latest.pt`.
 
 The final paper/poster table should not replace the Ours row until the 330,000-step checkpoint and the full 6,000-sample evaluation are complete.
+
+## Cross-Repo Artifacts
+
+The project artifacts are now split across the public research-system repositories so the paper, figures, and presentation can be updated independently while keeping this research URL as the status anchor.
+
+| Artifact | URL or path | Status |
+| --- | --- | --- |
+| Research status HTML | `https://donggeonbae.github.io/research/projects/lensless-depth-diffusion-final-model-status/` | Active canonical link; overwrite on every result update |
+| Figure set HTML | `https://donggeonbae.github.io/figure/projects/lensless-depth-diffusion-figure-set/` | Files pushed to `main` and `gh-pages`; public Pages currently returns 404 |
+| Presentation poster HTML | `https://donggeonbae.github.io/presentation/projects/lensless-depth-diffusion-poster/` | Active encrypted poster archive |
+| Manuscript status HTML | `https://donggeonbae.github.io/writing/projects/lensless-depth-diffusion-manuscript-status/` | Active encrypted writing archive |
+| Working paper PDF | `paper/main.pdf` in the training project | Preliminary, uses v15 195k full-test metrics |
+| Working poster PDF | `poster/poster.pdf` in the training project | Preliminary, uses v15 195k full-test metrics |
+
+Local `.env.local` files in the archive repos define `REPORT_PASSWORD=4716` and are intentionally untracked.
 
 ## Figure Evidence Notes
 
@@ -84,6 +103,8 @@ Current figure policy:
 - Use clean result panels with RGB, GT depth, physics baseline, and Ours.
 - Do not show teacher output as the primary qualitative result unless explicitly labeled as an upper-bound baseline.
 - Architecture figure should show latent encoder/decoder, denoising UNet, PSF/deconvolution conditioning, and reverse-diffusion guidance.
+- The figure repo now contains separate specs for architecture, deconvolution focus planes, and depth-result panels, following the local `templates/figure-spec.md` structure.
+- The presentation repo now contains a poster planning/archive file following `templates/poster.md`, with background, method, result, speaker-script, and export-checklist sections.
 
 ## Open Questions
 
