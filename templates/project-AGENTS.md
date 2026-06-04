@@ -1,4 +1,4 @@
-# AGENTS.md
+﻿# AGENTS.md
 
 ## Purpose
 
@@ -143,3 +143,5 @@ When acting as an AI coding agent:
 - Explain important tradeoffs briefly.
 - Report what changed and how it was verified.
 - If blocked, describe the blocker and the next best step.
+
+

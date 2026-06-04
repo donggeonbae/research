@@ -1,4 +1,4 @@
-# research
+﻿# research
 
 Reusable baseline instructions for AI coding agents.
 
@@ -41,3 +41,18 @@ For each project, update:
 - security or deployment notes
 
 Keep the shared baseline conservative. Put unusual rules in the target project's own `AGENTS.md`.
+
+
+## HTML Archive Framework
+
+This repository includes the encrypted static HTML archive framework adapted from `Lukael/research`.
+
+Typical report flow:
+
+```powershell
+$env:REPORT_PASSWORD="<local secret>"
+node scripts/build-markdown-report.js --slug example-report --input path\to\report.md --title "Example Report"
+```
+
+The command creates `projects/<slug>/index.html` and, when `REPORT_PASSWORD` is set, `projects/<slug>/report.enc`. The transient plaintext HTML is written under `build/` and should not be committed.
+

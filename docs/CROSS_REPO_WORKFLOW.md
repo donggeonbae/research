@@ -1,14 +1,14 @@
-# Cross-Repository Workflow
+﻿# Cross-Repository Workflow
 
-The Ramblue research system uses three repositories with distinct roles.
+The donggeonbae research system uses five repositories with distinct roles.
 
 ## Repositories
 
-- `Ramblue/research`: shared source material, research maps, reusable notes, and evidence.
-- `Ramblue/review`: structured paper reviews and comparative critique.
-- `Ramblue/figure`: paper figures, diagrams, visual explanations, Figma assets, and image-generation workflows.
-- `Ramblue/writing`: LaTeX manuscript drafts, venue templates, citation integration, strict review loops, and submission materials.
-- `Ramblue/presentation`: meeting decks, literature review decks, conference talks, posters, and speaker scripts.
+- `donggeonbae/research`: shared source material, research maps, reusable notes, and evidence.
+- `donggeonbae/review`: structured paper reviews and comparative critique.
+- `donggeonbae/figure`: paper figures, diagrams, visual explanations, Figma assets, and image-generation workflows.
+- `donggeonbae/writing`: LaTeX manuscript drafts, venue templates, citation integration, strict review loops, and submission materials.
+- `donggeonbae/presentation`: meeting decks, literature review decks, conference talks, posters, and speaker scripts.
 
 ## Flow
 
@@ -46,3 +46,5 @@ Presentation: ../presentation/conference-talk/project-slug/talk.md
 - A figure can be promoted to writing when its source, purpose, caption, and permissions are clear.
 - A manuscript claim should link back to a review, source note, internal result, or figure spec.
 - A presentation slide should link back to a manuscript section, review, source note, or figure spec when it makes a substantive claim.
+
+

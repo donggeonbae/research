@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Parameter(Mandatory = $true)]
     [string]$ProjectPath,
 
@@ -26,3 +26,4 @@ if ((Test-Path -LiteralPath $destination) -and -not $Force) {
 Copy-Item -LiteralPath $resolvedTemplate -Destination $destination -Force:$Force
 
 Write-Host "Installed AGENTS.md to $destination"
+
