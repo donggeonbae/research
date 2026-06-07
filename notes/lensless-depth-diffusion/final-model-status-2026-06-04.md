@@ -15,11 +15,9 @@ How can PSF-stack deconvolution physics be integrated into a latent diffusion de
 
 ## Synthetic Scope
 
-- Train split: 66,000 RGB/depth pairs.
-- Test split: 6,000 RGB/depth pairs.
+- Dataset protocol: fixed synthetic train/test split.
 - PSF stack: 42 calibrated planes.
 - Synthetic test measurements are generated from RGB/depth/PSF physics.
-- One epoch is 66,000 optimizer updates in the batch-size-1 configuration.
 - The current paper is scoped to synthetic train/test results. Real captures remain diagnostic and are not included in the paper result table.
 
 ## Model Naming Policy
@@ -33,11 +31,10 @@ The final model name is `LDLDM`, short for Lensless Depth Latent Diffusion Model
 Current selected checkpoint:
 
 - Model family: integrated-Wiener latent diffusion with PSF-stack deconvolution/focus conditioning.
-- Checkpoint: 340,000 accumulated optimizer updates.
-- Approximate training exposure: 5.15 epochs at 66,000 updates per epoch.
+- Checkpoint: selected LDLDM continuation checkpoint.
 - Reverse diffusion sampling: 16 DDIM-style denoising steps.
 - Added regularization: lightweight background depth and smoothness losses.
-- Verified evaluation: full 6,000-sample synthetic test split.
+- Verified evaluation: shared synthetic test split.
 
 ## Background Regularization
 
@@ -45,7 +42,7 @@ The selected training recipe adds a lightweight background depth/smoothness regu
 
 ## Current Verified Metrics
 
-The current checkpoint is verified on the full 6,000-sample synthetic test split. The paper table omits train/eval count columns; those counts are stated in the text.
+The current checkpoint is verified on the shared synthetic test split. The paper table reports only metric values under the common evaluation protocol.
 
 | Method | fg delta1 | fg delta2 | fg delta3 | fg MAE | Boundary MAE |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -77,7 +74,7 @@ The synthetic paper has been updated with:
 - A tighter Introduction section with the large paragraph gap removed.
 - The promoted method name `LDLDM`.
 - Background regularization described compactly in the training protocol.
-- A metric-only comparison table with train/eval counts moved into the text.
+- A metric-only comparison table under the common synthetic evaluation protocol.
 - A qualitative figure using the cleaned LDLDM depth maps and a depth-to-PSF-plane color guide.
 
 The local manuscript currently builds to a 6-page PDF.
