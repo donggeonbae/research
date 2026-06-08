@@ -17,6 +17,7 @@ How can PSF-stack deconvolution physics be integrated into a latent diffusion de
 
 - Dataset protocol: fixed synthetic train/test split.
 - PSF stack: 42 calibrated planes.
+- Physical depth range: 4--70 cm.
 - Synthetic test measurements are generated from RGB/depth/PSF physics.
 - The current paper is scoped to synthetic train/test results. Real-capture validation is the next step for demonstrating practical effectiveness and is not included in the paper result table.
 
@@ -65,7 +66,7 @@ Additional LDLDM empty-region metrics on the same full split:
 | --- |
 | ![](assets/ldldm_bg_suppressed_qualitative_colorbar.png) |
 
-The paper now separates the qualitative evidence into two wide figures. Figure 2 is the two-column deconvolution-depth evidence panel using mid/late planes `z={14,22,30,38}`. Figure 3 is the two-column synthetic comparison with RGB, GT depth, physics focus baseline, and LDLDM. The colorbar maps normalized depth `d in [0,1]` to PSF plane index `z=round(41d)`.
+The paper now separates the qualitative evidence into two figures. Figure 2 is the two-column deconvolution-depth evidence panel using mid/late planes `z={14,22,30,38}`. Page 4 is ordered from the top as Figure 2 followed by Table 3. Figure 3 is the one-column synthetic comparison with RGB, GT depth, physics focus baseline, and LDLDM. The colorbar maps normalized depth `d in [0,1]` to the physical 4--70 cm depth range and PSF plane index `z=round(41d)`.
 
 ## Paper Update
 
@@ -76,6 +77,7 @@ The synthetic paper has been updated with:
 - Background regularization described compactly in the training protocol.
 - A metric-only comparison table under the common synthetic evaluation protocol.
 - Figure 2 split out as a large two-column deconvolution-depth evidence figure.
-- Figure 3 uses the cleaned LDLDM depth maps as a separate two-column comparison figure.
+- Page 4 float order set to Figure 2 followed by Table 3.
+- Figure 3 uses the cleaned LDLDM depth maps as a separate one-column comparison figure.
 
-The local manuscript currently builds to a 7-page PDF including references.
+The local manuscript currently builds to a 6-page PDF including references.
