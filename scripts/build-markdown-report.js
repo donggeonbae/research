@@ -113,10 +113,28 @@ function readImage(src, sourceRoot) {
   return { mime, base64: fs.readFileSync(filePath).toString('base64') };
 }
 
-function renderImage(src, sourceRoot) {
+function renderImage(src, sourceRoot, alt = '') {
   const image = readImage(src, sourceRoot);
 
-  return `<img data-image-mime="${escapeHtml(image.mime)}" data-image-base64="${escapeHtml(image.base64)}" alt="" loading="lazy">`;
+  return `<img data-image-mime="${escapeHtml(image.mime)}" data-image-base64="${escapeHtml(image.base64)}" alt="${escapeHtml(alt)}" loading="lazy">`;
+}
+
+function inlineMarkdownWithImages(value, sourceRoot) {
+  const images = [];
+  const placeholderPrefix = 'REPORT_IMAGE_PLACEHOLDER_';
+  const withPlaceholders = String(value || '').replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, src) => {
+    const token = `${placeholderPrefix}${images.length}`;
+    images.push(renderImage(src, sourceRoot, alt));
+    return token;
+  });
+
+  let out = inlineMarkdown(withPlaceholders);
+
+  images.forEach((imageHtml, index) => {
+    out = out.replaceAll(`${placeholderPrefix}${index}`, imageHtml);
+  });
+
+  return out;
 }
 
 function renderTable(rows, sourceRoot) {
@@ -125,9 +143,7 @@ function renderTable(rows, sourceRoot) {
   const body = parsed.slice(2);
   const renderCell = (cell, tag) => {
     const imageOnly = cell.match(/^!\[[^\]]*\]\(([^)]+)\)$/);
-    const content = imageOnly
-      ? renderImage(imageOnly[1], sourceRoot)
-      : inlineMarkdown(cell).replace(/!\[[^\]]*\]\(([^)]+)\)/g, (_, src) => renderImage(src, sourceRoot));
+    const content = imageOnly ? renderImage(imageOnly[1], sourceRoot) : inlineMarkdownWithImages(cell, sourceRoot);
 
     return `<${tag}>${content}</${tag}>`;
   };
@@ -154,13 +170,13 @@ function renderMarkdown(markdown, sourceRoot) {
 
   function flushParagraph() {
     if (!paragraph.length) return;
-    html.push(`<p>${inlineMarkdown(paragraph.join(' ')).replace(/!\[[^\]]*\]\(([^)]+)\)/g, (_, src) => renderImage(src, sourceRoot))}</p>`);
+    html.push(`<p>${inlineMarkdownWithImages(paragraph.join(' '), sourceRoot)}</p>`);
     paragraph = [];
   }
 
   function flushList() {
     if (!list.length) return;
-    html.push('<ul>' + list.map((item) => `<li>${inlineMarkdown(item)}</li>`).join('') + '</ul>');
+    html.push('<ul>' + list.map((item) => `<li>${inlineMarkdownWithImages(item, sourceRoot)}</li>`).join('') + '</ul>');
     list = [];
   }
 
@@ -172,7 +188,7 @@ function renderMarkdown(markdown, sourceRoot) {
 
   function flushBlockquote() {
     if (!blockquote.length) return;
-    html.push(`<blockquote>${blockquote.map((line) => `<p>${inlineMarkdown(line)}</p>`).join('')}</blockquote>`);
+    html.push(`<blockquote>${blockquote.map((line) => `<p>${inlineMarkdownWithImages(line, sourceRoot)}</p>`).join('')}</blockquote>`);
     blockquote = [];
   }
 
@@ -364,4 +380,3 @@ function main() {
 }
 
 main();
-
