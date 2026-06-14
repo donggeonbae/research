@@ -56,3 +56,4 @@ node scripts/build-markdown-report.js --slug example-report --input path\to\repo
 
 The command creates `projects/<slug>/index.html` and, when `REPORT_PASSWORD` is set, `projects/<slug>/report.enc`. The transient plaintext HTML is written under `build/` and should not be committed.
 
+Markdown reports render LaTeX math through the local KaTeX bundle under `scripts/vendor/katex/`. Use `$...$` or `\(...\)` for inline math and `$$...$$` or `\[...\]` for display math. Fenced code blocks remain literal and are not math-rendered.

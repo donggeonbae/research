@@ -167,6 +167,7 @@ function renderMarkdown(markdown, sourceRoot) {
   let codeLang = '';
   let code = [];
   let blockquote = [];
+  let mathBlock = null;
 
   function flushParagraph() {
     if (!paragraph.length) return;
@@ -192,14 +193,36 @@ function renderMarkdown(markdown, sourceRoot) {
     blockquote = [];
   }
 
+  function flushMathBlock() {
+    if (!mathBlock) return;
+    html.push(`<div class="math-display">${escapeHtml(mathBlock.lines.join('\n'))}</div>`);
+    mathBlock = null;
+  }
+
   function flushAll() {
     flushParagraph();
     flushList();
     flushTable();
     flushBlockquote();
+    flushMathBlock();
+  }
+
+  function displayMathStart(line) {
+    const trimmed = line.trim();
+
+    if (trimmed.startsWith('$$')) return { closing: '$$', sameLine: trimmed.length > 2 && trimmed.endsWith('$$') };
+    if (trimmed.startsWith('\\[')) return { closing: '\\]', sameLine: trimmed.length > 2 && trimmed.endsWith('\\]') };
+
+    return null;
   }
 
   for (const line of lines) {
+    if (mathBlock) {
+      mathBlock.lines.push(line);
+      if (line.trim().endsWith(mathBlock.closing)) flushMathBlock();
+      continue;
+    }
+
     const fence = line.match(/^```\s*([\w.+-]*)\s*$/);
 
     if (fence) {
@@ -223,6 +246,15 @@ function renderMarkdown(markdown, sourceRoot) {
 
     if (!line.trim()) {
       flushAll();
+      continue;
+    }
+
+    const mathStart = displayMathStart(line);
+
+    if (mathStart) {
+      flushAll();
+      mathBlock = { closing: mathStart.closing, lines: [line] };
+      if (mathStart.sameLine) flushMathBlock();
       continue;
     }
 
@@ -298,10 +330,11 @@ function buildReportHtml(markdown, options) {
   const sourceRoot = path.dirname(path.resolve(options.input));
   const reportTemplate = readTemplate('report-template.html');
   const reportStyle = reportTemplate.match(/<style>([\s\S]*?)<\/style>/i)?.[1];
-  const blobScript = reportTemplate.match(/<script>\s*\(function \(\)[\s\S]*?<\/script>/i)?.[0];
+  const reportScripts = reportTemplate.match(/<script\b[\s\S]*?<\/script>/gi)?.join('\n');
+  const reportLinks = reportTemplate.match(/<link\b[^>]*>/gi)?.join('\n') || '';
 
   if (!reportStyle) fail('Missing report style in templates/report-template.html');
-  if (!blobScript) fail('Missing Blob URL image script in templates/report-template.html');
+  if (!reportScripts) fail('Missing report scripts in templates/report-template.html');
 
   const { body, headings } = renderMarkdown(markdown, sourceRoot);
   const nav = headings
@@ -323,6 +356,7 @@ function buildReportHtml(markdown, options) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <base href="./">
   <title>${escapeHtml(title)}</title>
+  ${reportLinks}
   <style>
 ${reportStyle}
   </style>
@@ -342,7 +376,7 @@ ${reportStyle}
     <nav class="toc" aria-label="Table of contents"><strong>Contents</strong>${nav}</nav>
     <main class="content">${body}</main>
   </div>
-  ${blobScript}
+  ${reportScripts}
 </body>
 </html>`;
 }

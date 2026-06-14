@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{PROJECT_TITLE}}</title>
+  <link rel="stylesheet" href="../../scripts/vendor/katex/katex.min.css">
   <style>
     :root {
       color-scheme: dark;
@@ -255,6 +256,24 @@
       padding: 0;
     }
 
+    .katex {
+      color: var(--ink);
+      font-size: 1.02em;
+    }
+
+    .katex-display {
+      max-width: 920px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding: 0.25rem 0;
+    }
+
+    .math-display {
+      max-width: 920px;
+      margin: 24px 0;
+      overflow-x: auto;
+    }
+
     .table-wrap {
       overflow-x: auto;
       margin: 24px 0;
@@ -431,6 +450,30 @@
   </div>
 
   <footer>{{FOOTER_NOTE}}</footer>
+  <script defer src="../../scripts/vendor/katex/katex.min.js"></script>
+  <script defer src="../../scripts/vendor/katex/contrib/auto-render.min.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      if (typeof renderMathInElement !== "function") {
+        return;
+      }
+
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: "$$", right: "$$", display: true },
+          { left: "$", right: "$", display: false },
+          { left: "\\(", right: "\\)", display: false },
+          { left: "\\[", right: "\\]", display: true },
+          { left: "\\begin{equation}", right: "\\end{equation}", display: true },
+          { left: "\\begin{align}", right: "\\end{align}", display: true },
+          { left: "\\begin{alignat}", right: "\\end{alignat}", display: true },
+          { left: "\\begin{gather}", right: "\\end{gather}", display: true },
+        ],
+        ignoredTags: ["script", "noscript", "style", "textarea", "pre", "code", "option"],
+        throwOnError: false,
+      });
+    });
+  </script>
   <script>
     (function () {
       var objectUrls = [];
@@ -489,5 +532,3 @@
   </script>
 </body>
 </html>
-
-
