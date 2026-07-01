@@ -3,6 +3,16 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
+const katex = require('katex');
+
+// Render LaTeX to STATIC HTML at build time (no runtime MathJax/JS needed; KaTeX CSS added in <head>).
+function renderMath(tex, displayMode) {
+  try {
+    return katex.renderToString(String(tex).trim(), { displayMode, throwOnError: false, strict: false });
+  } catch (err) {
+    return `<code class="math-error">${escapeHtml(String(tex))}</code>`;
+  }
+}
 
 const repoRoot = path.resolve(__dirname, '..');
 const imageMimes = new Map([
@@ -80,12 +90,17 @@ function slugify(value) {
 }
 
 function inlineMarkdown(value) {
-  let out = escapeHtml(value);
-
+  // Protect inline math $...$ (KaTeX) BEFORE escapeHtml/markdown so LaTeX is not mangled.
+  const math = [];
+  let v = String(value || '').replace(/\$([^$\n]+?)\$/g, function (m, tex) {
+    math.push(renderMath(tex, false));
+    return '\u0000' + (math.length - 1) + '\u0000';
+  });
+  let out = escapeHtml(v);
   out = out.replace(/`([^`]+)`/g, '<code>$1</code>');
   out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-
+  out = out.replace(/\u0000(\d+)\u0000/g, function (m, i) { return math[Number(i)]; });
   return out;
 }
 
@@ -195,7 +210,10 @@ function renderMarkdown(markdown, sourceRoot) {
 
   function flushMathBlock() {
     if (!mathBlock) return;
-    html.push(`<div class="math-display">${escapeHtml(mathBlock.lines.join('\n'))}</div>`);
+    let tex = mathBlock.lines.join('\n').trim()
+      .replace(/^\$\$/, '').replace(/\$\$$/, '')
+      .replace(/^\\\[/, '').replace(/\\\]$/, '').trim();
+    html.push(`<div class="math-display">${renderMath(tex, true)}</div>`);
     mathBlock = null;
   }
 
@@ -357,6 +375,7 @@ function buildReportHtml(markdown, options) {
   <base href="./">
   <title>${escapeHtml(title)}</title>
   ${reportLinks}
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <style>
 ${reportStyle}
   </style>

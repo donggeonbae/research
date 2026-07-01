@@ -109,16 +109,6 @@
     iframe.addEventListener("load", function () {
       installAnchorScrolling(iframe);
     });
-    // Inject MathJax so LaTeX ($...$, $$...$$) in reports renders inside the iframe.
-    // Additive only; reports without math delimiters are unaffected.
-    var mathInject =
-      '<script>window.MathJax={tex:{inlineMath:[["$","$"]],displayMath:[["$$","$$"]],processEscapes:true},options:{skipHtmlTags:["script","noscript","style","textarea","pre","code"]}};<\/script>' +
-      '<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async><\/script>';
-    if (html.indexOf("</body>") !== -1) {
-      html = html.replace("</body>", mathInject + "</body>");
-    } else {
-      html = html + mathInject;
-    }
     iframe.srcdoc = html;
     document.body.classList.add("is-unlocked");
     document.body.appendChild(iframe);
