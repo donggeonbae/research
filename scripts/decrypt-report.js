@@ -109,6 +109,22 @@
     iframe.addEventListener("load", function () {
       installAnchorScrolling(iframe);
     });
+    // Render LaTeX ($...$, $$...$$) inside the iframe using the LOCALLY vendored
+    // KaTeX (no external CDN, so it works offline / on networks that block CDNs).
+    // Additive only; reports without math delimiters are unaffected.
+    var mathInject =
+      '<link rel="stylesheet" href="../../scripts/vendor/katex/katex.min.css">' +
+      '<script defer src="../../scripts/vendor/katex/katex.min.js"><\/script>' +
+      '<script defer src="../../scripts/vendor/katex/contrib/auto-render.min.js"><\/script>' +
+      '<script defer>document.addEventListener("DOMContentLoaded",function(){' +
+      'if(window.renderMathInElement){renderMathInElement(document.body,{' +
+      'delimiters:[{left:"$$",right:"$$",display:true},{left:"$",right:"$",display:false}],' +
+      'throwOnError:false,ignoredTags:["script","noscript","style","textarea","pre","code"]});}});<\/script>';
+    if (html.indexOf("</body>") !== -1) {
+      html = html.replace("</body>", mathInject + "</body>");
+    } else {
+      html = html + mathInject;
+    }
     iframe.srcdoc = html;
     document.body.classList.add("is-unlocked");
     document.body.appendChild(iframe);
