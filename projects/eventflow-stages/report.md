@@ -45,28 +45,29 @@ $$v=\frac{\sum_i (t_i-\bar t)(z_i-\bar z)}{\sum_i (t_i-\bar t)^2}\times 10^6\ \ 
 
 ---
 
-## Stage 2 — Path Tracker (순간 벡터 → 경로 기반 정제 벡터)
+## Stage 2 — Path Tracker (순간 벡터 → 경로 기반 정제 벡터) — 2026-07-02 통일 완료
 
-**파일**: `canonical/stage15_pathcurve.py`(추적형) / `stage1_estimator.fuse_per_event`(공간평균형) · **입력**: Stage 1 출력 · **출력**: 프레임당 `[x, y, vx, vy]` (4열)
+**파일**: `canonical/stage15_pathcurve.py` (단일 모듈, 전 유동 공통) · **입력**: Stage 1 출력 · **출력**: 프레임당 `[x, y, vx, vy]`(공간합의 시) 또는 `[x, y, vx, vy, path_id]`(경로쌍 모드)
 
-Stage 1의 벡터는 입자 하나를 **한 순간**만 본 것이다. Stage 2는 그 입자를 **여러 프레임에 걸쳐 이어 붙여** 노이즈를 줄인다. 유동의 결맞음 구조에 따라 두 모드가 있고, config 키 하나로 갈린다:
+Stage 1의 벡터는 입자 하나를 **한 순간**만 본 것이다. Stage 2는 이를 정제한다. 2026-07-02부로 **전 유동이 하나의 pathcurve 모듈**을 쓰며(과거의 별도 fuse front-end는 삭제), 세 개의 config 노브로 유동에 맞춘다.
 
-### 모드 A: fuse (공간 평균) — pipe, jet
+### 처리 순서 (한 모듈 안의 세 단계)
 
-매끄러운 유동은 이웃한 벡터들이 거의 같은 속도다. PIV처럼 window(32px)를 step(8px)으로 겹쳐 밀며, 창 안 벡터들을 `triplet_count` 가중 평균한다. 낮은 신뢰도 벡터(`tmin` 미만)는 사전에 버린다. 공간이 매끄럽다는 사실 자체가 노이즈 평균화의 근거다.
+**2-1. 경로 추적 (공통).** 프레임 $t_0$의 벡터에서 seed(`seed_stride`마다) → 다음 프레임에서 등속 예측 $\hat p = p + v\,dt$의 반경 `gate` 안 최근접 벡터를 같은 입자로 연결 → 최대 $K$(30) 프레임. **가변 길이(min_len)**: `min_len`(8) 이상 살아남은 모든 경로를 실제 길이로 사용 — K를 키워도 짧은 경로가 탈락하지 않아 손해가 없다(실측으로 확인한 설계).
 
-### 모드 B: pathcurve (경로 추적) — wake
+**2-2. 속도 소스 (config: `source`, `fd_halfwin`).** 경로에서 속도를 어떻게 뽑을지:
+- `source='paths'` + `fd_halfwin=w`: 추적된 위치의 **국소 중심차분** $v_k=\frac{x_{k+w}-x_{k-w}}{2w\,dt}$ — correspondence를 직접 미분. 다항식 미분(과평활)과 raw triplet 속도(노이즈 과다)의 중간으로, 세 방식을 동일 조건 실측 비교해 선택. **jet(w=1)·wake(w=4)**.
+- `source='events'`: 경로와 무관하게 **모든 tmin-통과 이벤트를 그대로** deposit (가중치=triplet_count). 공간적으로 매끄러운 유동에선 조밀한 이벤트 앙상블이 어떤 입자별 시간 속도보다 정확하다 — **pipe**. (과거 fuse의 철학이 이 config로 흡수됨; 구 fuse와 수치 동일함을 검증: 0.887=0.887@9k.)
 
-소용돌이(von-Kármán)가 도는 유동은 공간 평균이 회전 구조를 뭉갠다. 대신 **입자를 시간으로 따라간다**:
+**2-3. 공간 합의 (config: `spatial_window`).** fuse가 가진 강점 — PIV식 겹침 창(window/step) 안 confidence-가중 평균 — 을 deposit 뒤에 적용. **pipe window=32**(강한 공간 평균), **jet window=8**(가벼운 합의; jet 0.938→0.960의 주역), **wake는 off**(소용돌이가 평균에 뭉개짐; ±0.01 실측으로 확인).
 
-1. **씨앗(seed)**: 프레임 $t_0$의 각 벡터에서 출발 (`seed_stride`마다).
-2. **예측–매칭**: 다음 프레임에서 등속 예측 위치 $\hat p = p + v\,dt$의 반경 `gate`(4px) 안 최근접 벡터를 같은 입자로 연결. 반복하며 최대 $K$(30) 프레임까지 경로를 만든다.
-3. **가변 길이(varlen, min_len)**: 끝까지 살아남은 경로만 쓰면 K를 키울수록 경로가 줄어드는 왜곡이 생긴다. `min_len`(8) 이상 살아남은 **모든** 경로를 각자의 실제 길이로 사용 — 그래서 K를 키워도 손해가 없다.
-4. **경로 fit → 속도**: 경로 위치들에 3차 다항식을 맞추고, 속도는 위치의 **국소 중심차분**(`fd_halfwin=4`, 추적된 correspondence를 직접 미분)으로 뽑는다. 다항식 미분(과평활: 실제 변동까지 지움)과 원시 triplet 속도(노이즈 과다)의 중간이 이 차분이며, 세 방식을 동일 조건에서 실측 비교해 선택했다.
+### 경로 정보의 추가 활용 (Lagrangian pairing)
 
-### 왜 유동마다 모드가 다른가 (자의적이지 않은 이유)
+spatial 합의를 끄면 deposit에 `path_id`가 실려 나가고, Stage 4의 노이즈 선택기가 프레임 간 짝을 **NN 재추측 대신 추적된 경로 id로 정확히** 형성한다(오매칭 제거). wake가 이 모드를 쓴다.
 
-실측 결과가 명확하다: pipe에 pathcurve를 쓰면 0.92→0.83으로 떨어지고(공간 평균이 주는 노이즈 제거를 잃음), wake에 fuse를 쓰면 소용돌이가 뭉개진다. **deposit 선택 = 유동의 결맞음이 공간에 있는가(pipe), 시간에 있는가(wake)에 측정을 맞추는 것** — 물리적 선택이고, 프레임워크에서 유일하게 허용된 유동별 축이다.
+### 왜 유동마다 값이 다른가 (자의적이지 않은 이유)
+
+**deposit 값 선택 = 유동의 결맞음이 공간에 있는가(pipe→events+큰 창), 시간에 있는가(wake→경로차분+창 없음)에 측정을 맞추는 것.** jet은 중간(경로차분+작은 창). 모두 동일 조건 실측 비교로 정했고, 코드는 한 경로다.
 
 ---
 
@@ -139,7 +140,7 @@ $$R^2 = 1-\frac{\sum (y_{model}-y_{DNS})^2}{\sum (y_{DNS}-\bar y_{DNS})^2}$$
 | | pipe | jet | wake |
 |---|---|---|---|
 | Stage 1 pyramid $(s,g,dx,dy)$ | (6,12,1,10),(6,30,0,2) | (4,4,7,2),(8,8,1,1) | (4,8,4,4),(12,24,2,2) |
-| Stage 2 모드 | fuse w32/s8/t4 | fuse w16/s8/t2 | pathcurve K30/min_len8/fd4/gate4/ss3 |
+| Stage 2 (한 모듈) | events, tmin4, spatial32 | paths, gate14, fd1, spatial8 | paths, gate4, fd4, spatial off |
 | 기하 | 중심 572.5, 벽 1125 | 노즐 (1240,360), D=250px | 실린더 (90,380), D=355px |
 | Stage 4 n_lags | 1 | 6 | 1 |
 | smooth_bins / MAD | 1 / 6 | 1 / — | 5 / — |
@@ -150,15 +151,15 @@ $$R^2 = 1-\frac{\sum (y_{model}-y_{DNS})^2}{\sum (y_{DNS}-\bar y_{DNS})^2}$$
 
 | 유동 | mean R² | 상태 |
 |---|---|---|
-| pipe | **0.918** | 목표(≥0.9) 달성 |
-| jet | **0.938** | 목표 달성 |
-| wake | 0.590 | 원거리 스테이션(x/D=2.02) 변동 진폭이 병목 |
+| pipe | **0.918** | 목표(≥0.9) 달성 · Stage-2 통일 무손실 |
+| jet | **0.960** | 목표 달성 · 통일 pathcurve로 역대 최고 (전 채널 ≥0.91) |
+| wake | 0.591 | 원거리 스테이션(x/D=2.02) 변동 진폭이 병목 |
 
-wake의 남은 격차는 수십 개의 대조 실험(deposit 변형, 위상-분해, 서브픽셀, 2×스팬 피라미드, 상관면 PIV 등 — 전부 ±0.02)으로 좁혀 들어간 결과, **원거리 변동 신호가 측정 한계 수준**이라는 진단에 도달했다(front-end 우회 검증 진행 중). 프레임워크의 가치는 이 과정 자체에 있다: 어떤 개선이 진짜이고 어떤 것이 정답 끼워맞춤인지 **스스로 판별하는 규율**.
+wake의 남은 격차는 수십 개의 대조 실험(deposit 변형, 위상-분해, 서브픽셀, 2×스팬 피라미드, 상관면 PIV 등 — 전부 ±0.02)으로 좁혀 들어간 결과, **원거리 변동 신호가 raw 데이터 자체에서 약하다**는 진단에 도달했다 — 서로 독립인 3개 측정 경로(triplet·stage1-PIV·raw-이벤트 PIV)가 같은 지점에서 동일하게 붕괴함을 확인(데이터 한계; 개선은 새 녹화 필요). 프레임워크의 가치는 이 과정 자체에 있다: 어떤 개선이 진짜이고 어떤 것이 정답 끼워맞춤인지 **스스로 판별하는 규율**.
 
 ## 재현
 
 ```
-repo donggeonbae/event-flow-turbulence, branch work/wake-operator-recovery-20260624 @ 163f3d3
+repo donggeonbae/event-flow-turbulence, branch work/wake-operator-recovery-20260624 @ abd29b9 (Stage-2 통일)
 MPLBACKEND=Agg PYTHONPATH=.pydeps:. python -m canonical.run pipe jet wake
 ```
