@@ -140,10 +140,11 @@ $$R^2 = 1-\frac{\sum (y_{model}-y_{DNS})^2}{\sum (y_{DNS}-\bar y_{DNS})^2}$$
 | | pipe | jet | wake |
 |---|---|---|---|
 | Stage 1 pyramid $(s,g,dx,dy)$ | (6,12,1,10),(6,30,0,2) | (4,4,7,2),(8,8,1,1) | (4,8,4,4),(12,24,2,2) |
-| Stage 2 (한 모듈) | events, tmin4, spatial32 | paths, gate14, fd1, spatial8 | paths, gate4, fd4, spatial off |
+| n_bins (px-해상도 정합) | 128 (4.3px/bin) | 128 (4.9px/bin) | **256 (9.7px/bin=입자간격)** |
+| Stage 2 (한 모듈) | events, tmin4, spatial32 | paths, gate14, fd1, spatial8 | paths, gate4, fd4, spatial off (경로 id 짝) |
 | 기하 | 중심 572.5, 벽 1125 | 노즐 (1240,360), D=250px | 실린더 (90,380), D=355px |
 | Stage 4 n_lags | 1 | 6 | 1 |
-| smooth_bins / MAD | 1 / 6 | 1 / — | 5 / — |
+| smooth_bins / MAD | 1 / **6(통일)** | 1 / **6(통일)** | 9 / **6(통일)** |
 | gauge | — | 운동량(β=0) | 원방 U∞ |
 | 공통 | max_frames=45000 · n_bins=128 · flow-name 분기 0 (감사 확인) | ← | ← |
 
@@ -152,14 +153,14 @@ $$R^2 = 1-\frac{\sum (y_{model}-y_{DNS})^2}{\sum (y_{DNS}-\bar y_{DNS})^2}$$
 | 유동 | mean R² | 상태 |
 |---|---|---|
 | pipe | **0.918** | 목표(≥0.9) 달성 · Stage-2 통일 무손실 |
-| jet | **0.960** | 목표 달성 · 통일 pathcurve로 역대 최고 (전 채널 ≥0.91) |
-| wake | 0.591 | 원거리 스테이션(x/D=2.02) 변동 진폭이 병목 |
+| jet | **0.968** | 목표 달성 · 역대 최고 (전 채널 ≥0.93; 통일 pathcurve + MAD) |
+| wake | 0.621 | 역대 최고 (px-정합 bin + MAD); 원거리 진폭은 데이터 한계 |
 
 wake의 남은 격차는 수십 개의 대조 실험(deposit 변형, 위상-분해, 서브픽셀, 2×스팬 피라미드, 상관면 PIV 등 — 전부 ±0.02)으로 좁혀 들어간 결과, **원거리 변동 신호가 raw 데이터 자체에서 약하다**는 진단에 도달했다 — 서로 독립인 3개 측정 경로(triplet·stage1-PIV·raw-이벤트 PIV)가 같은 지점에서 동일하게 붕괴함을 확인(데이터 한계; 개선은 새 녹화 필요). 프레임워크의 가치는 이 과정 자체에 있다: 어떤 개선이 진짜이고 어떤 것이 정답 끼워맞춤인지 **스스로 판별하는 규율**.
 
 ## 재현
 
 ```
-repo donggeonbae/event-flow-turbulence, branch work/wake-operator-recovery-20260624 @ abd29b9 (Stage-2 통일)
+repo donggeonbae/event-flow-turbulence, branch work/wake-operator-recovery-20260624 @ 9c93d8d (Stage-2 통일 + knob 통일)
 MPLBACKEND=Agg PYTHONPATH=.pydeps:. python -m canonical.run pipe jet wake
 ```
