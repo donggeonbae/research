@@ -154,13 +154,13 @@ $$R^2 = 1-\frac{\sum (y_{model}-y_{DNS})^2}{\sum (y_{DNS}-\bar y_{DNS})^2}$$
 |---|---|---|
 | pipe | **0.918** | 목표(≥0.9) 달성 · Stage-2 통일 무손실 |
 | jet | **0.968** | 목표 달성 · 역대 최고 (전 채널 ≥0.93; 통일 pathcurve + MAD) |
-| wake | 0.635 | 역대 최고 — dual-stream 지역병합(근거리=기본 스팬, 원거리=2×스팬 빌드) + 정확 타임스탬프. 남은 사각=원거리 u_rms(변위-분산 진단으로 신호 존재 확인, 추출기 개발 중) |
+| wake | 0.655 | 역대 최고 — dual-stream + **Stage-2.5 raw 앙상블 응력**(추적 없이 raw 쌍-변위 τ-차분 통계로 빠른-decorrelation 변동 회수; 원거리 v_rms .15→.59). 남은 사각=원거리 u_rms |
 
 wake의 남은 격차는 수십 개의 대조 실험(deposit 변형, 위상-분해, 서브픽셀, 2×스팬 피라미드, 상관면 PIV 등 — 전부 ±0.02)으로 좁혀 들어간 결과, **원거리 변동 신호가 raw 데이터 자체에서 약하다**는 진단에 도달했다 — 서로 독립인 3개 측정 경로(triplet·stage1-PIV·raw-이벤트 PIV)가 같은 지점에서 동일하게 붕괴함을 확인(데이터 한계; 개선은 새 녹화 필요). 프레임워크의 가치는 이 과정 자체에 있다: 어떤 개선이 진짜이고 어떤 것이 정답 끼워맞춤인지 **스스로 판별하는 규율**.
 
 ## 재현
 
 ```
-repo donggeonbae/event-flow-turbulence, branch work/wake-operator-recovery-20260624 @ 612b422 (dual-stream + 정확 타임스탬프)
+repo donggeonbae/event-flow-turbulence, branch work/wake-operator-recovery-20260624 @ 516a114 (dual-stream + Stage-2.5 앙상블)
 MPLBACKEND=Agg PYTHONPATH=.pydeps:. python -m canonical.run pipe jet wake
 ```
