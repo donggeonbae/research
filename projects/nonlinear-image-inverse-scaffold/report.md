@@ -18,7 +18,13 @@ $$y = |A x|^2 + \eta$$
 
 여기서 $x \in [0,1]^{H \times W}$는 ground-truth 이미지, $A$는 2D Fourier transform(orthonormal, `norm="ortho"`), $y$는 intensity-only measurement, $\eta$는 noise다. $|Ax|^2$에서 **위상 정보가 소실**되므로 forward map은 $x$에 대해 nonlinear하고, 복원은 nonlinear inverse problem이 된다. 위 히어로 이미지의 두 번째 패널이 measurement(log-scale spectrum) — 위상이 없어 구조 정보가 보이지 않는 것이 문제의 본질이다.
 
-현재 $A$는 단일 FFT만 지원하며 coded diffraction mask(다중 마스크)는 TODO다. Noise는 Gaussian($y + \sigma\epsilon$, 기본 $\sigma=0.01$)만 지원, Poisson은 TODO.
+Forward operator는 **DPS 논문(Chung et al., ICLR 2023, arXiv:2209.14687) 공식 코드와 동일한 설정**을 지원한다 (2026-07-03 갱신):
+
+- **Measurement type**: `amplitude`($y=|Ax|$, DPS 설정) / `intensity`($y=|Ax|^2$, 고전 설정) 선택.
+- **Oversampling**: DPS와 동일하게 $\text{pad}=\lfloor \frac{\text{oversample}}{8}\cdot H\rfloor$/side (oversample 2.0, 256px → 384px padded).
+- **FFT**: centered orthonormal transform (ifftshift→FFT(ortho)→fftshift) — DPS의 `fft2_m`과 일치.
+- **Noise**: 측정영역 Gaussian($\sigma=0.05$, DPS 기본값) + DPS 방식 Poisson($\mathrm{Pois}(255\,r\,y)/(255\,r)$) 구현. Coded diffraction mask(다중 마스크)는 TODO.
+- **데이터셋 전처리도 논문과 동일**: center-crop → 256 resize → $[0,1]$ 정규화. DPS는 FFHQ-256/ImageNet-256을 쓰며, 같은 파이프라인이 폴더 지정만으로 적용된다(현재는 DIV2K valid로 실행).
 
 ## 2. 스캐폴드 구성
 
@@ -77,6 +83,17 @@ $$\hat{x} = \mathrm{normalize}\left(\left|\mathcal{F}^{-1}\!\left(\sqrt{y}\right
 - 두 노트북(`scaffold_demo`, `view_results`) headless 실행 통과
 - `src/train.py`는 의도된 안내 메시지 출력 후 종료
 
+## 4.1 실제 데이터셋 (DIV2K) + DPS 설정 검증 — 2026-07-03 추가
+
+`scripts/download_div2k.sh`(DIV2K valid HR 100장) + `scripts/preprocess_div2k.py`(center-crop→512px) 구현 후 두 구성으로 실행:
+
+| 구성 | 설정 | mean PSNR | mean SSIM | meas. err |
+|---|---|---|---|---|
+| `phase_retrieval_div2k.yaml` | intensity, oversample 없음, $\sigma=0.01$, 256px | 6.91 dB | 0.039 | 0.998 |
+| `phase_retrieval_div2k_dps.yaml` | **DPS 정합**: amplitude, oversample 2.0(→384), $\sigma=0.05$ | 6.84 dB | 0.029 | 0.979 |
+
+여전히 dummy이므로 수치는 기준선일 뿐이다. DPS 구성의 dummy 복원이 중앙 점(autocorrelation의 DC 집중)으로 나오는 것은 위상 소실의 교과서적 증상으로, forward 체인이 논문과 같은 방식으로 작동함을 시각적으로 확인해준다. forward operator 불변량(pad/crop 왕복, Parseval, adjoint가 선형 파트의 정확한 역)은 assert 기반 self-check로 검증했다. W&B: run `4owqyn52`(DIV2K), `wnxm38wz`(DIV2K-DPS).
+
 ## 5. TODO 로드맵
 
 - [ ] Wirtinger Flow baseline (스펙트럼 초기화 + gradient descent)
@@ -85,9 +102,9 @@ $$\hat{x} = \mathrm{normalize}\left(\left|\mathcal{F}^{-1}\!\left(\sqrt{y}\right
 - [ ] Unrolled reconstruction network
 - [ ] Diffusion prior
 - [ ] Coded diffraction masks (다중 마스크 측정)
-- [ ] Poisson noise + noise robustness 실험
+- [x] Poisson noise (DPS 방식, 2026-07-03) — noise robustness 실험은 TODO
 - [ ] Ablation runner
-- [ ] DIV2K full dataset (다운로드 스크립트는 placeholder 상태)
+- [x] DIV2K valid set 다운로드+전처리 (2026-07-03) — train set(800장)은 학습 단계에서 추가
 
 ## 6. 사용법
 
