@@ -1,6 +1,6 @@
 # Nonlinear Image Inverse Scaffold — Phase Retrieval 실험 뼈대 구축 보고
 
-이 문서는 **phase retrieval 기반 이미지 nonlinear inverse problem 실험을 위한 research scaffold** 구축 결과를 정리한다. 핵심 전제: **복원 모델은 아직 구현하지 않았다.** 현재 들어 있는 `DummyReconstructor`는 유효한 복원 방법이 아니며, dataset → forward operator → metric → HTML report → W&B logging 파이프라인 전체가 정상 동작하는지 검증하기 위한 자리표시자다. 낮은 PSNR/SSIM은 실패가 아니라 스캐폴드 검증의 정상 결과다.
+이 문서는 **phase retrieval 기반 이미지 nonlinear inverse problem 실험을 위한 research scaffold** 구축 결과를 정리한다. 구축 당시 전제는 "복원 모델 없이 파이프라인만"이었고 `DummyReconstructor`는 그 검증용 자리표시자였다. 이후 갱신(§4.1–4.2)으로 고전 베이스라인(HIO/WF/TV)이 스캐폴드에 구현되었고, SOTA(DAPS)·표준 베이스라인(DPS)은 공식 체크포인트로 동일 프로토콜 비교까지 완료했다. 신경망 계열의 스캐폴드 내장 구현은 여전히 TODO다.
 
 - **코드 위치**: 로컬 `nonlinear_image_inverse_scaffold/` (src/evaluate.py가 진입점)
 - **W&B**: `oisl/nonlinear-image-inverse-scaffold` (scalar/image/table/artifact 로깅 확인, run `7er8h1zk`)
@@ -94,15 +94,48 @@ $$\hat{x} = \mathrm{normalize}\left(\left|\mathcal{F}^{-1}\!\left(\sqrt{y}\right
 
 여전히 dummy이므로 수치는 기준선일 뿐이다. DPS 구성의 dummy 복원이 중앙 점(autocorrelation의 DC 집중)으로 나오는 것은 위상 소실의 교과서적 증상으로, forward 체인이 논문과 같은 방식으로 작동함을 시각적으로 확인해준다. forward operator 불변량(pad/crop 왕복, Parseval, adjoint가 선형 파트의 정확한 역)은 assert 기반 self-check로 검증했다. W&B: run `4owqyn52`(DIV2K), `wnxm38wz`(DIV2K-DPS).
 
+## 4.2 SOTA·베이스라인 비교 실험 — 2026-07-03 추가
+
+최신 문헌 기준 phase retrieval의 SOTA 계열은 diffusion prior 방법이다: **DPS**(Chung et al., ICLR 2023)가 표준 베이스라인, **DAPS**(Zhang et al., NeurIPS 2024, arXiv:2407.01521)가 대표 SOTA(FFHQ-256 PR 보고치 30.72 dB, DPS 대비 +9 dB). 2025년 이후 DiffStateGrad·DDfire 등이 DAPS를 소폭 개선하지만 공개 체크포인트·코드 성숙도 기준으로 DPS/DAPS를 채택했다.
+
+**실험 프로토콜** — 모든 방법을 동일 조건으로 비교: FFHQ validation 10장(DAPS 저자 제공 demo set, 256×256 RGB), $y=|F(\text{pad}(x))|$, oversample 2.0, $\sigma=0.05$, 같은 noise seed, 전역 모호성(180°+shift) 정합 후 우리 스캐폴드 metric으로 통일 채점(`scripts/eval_external_recons.py`). Diffusion 방법은 논문 프로토콜대로 4-run(mean과 best-of-4 병기), 고전 방법은 random-restart 내장.
+
+- **체크포인트**: DPS 저자 공식 Google Drive의 `ffhq_10m.pt`(FFHQ-256 DDPM, 374MB) — DPS·DAPS 공용. 순수 state_dict임을 `weights_only=True` 로드로 확인.
+- **학습 불필요**: 두 방법 모두 사전학습 prior 위의 posterior sampling이므로 체크포인트만으로 실행.
+- **코드**: 공식 레포 그대로(패치: DPS에 motionblur 서브모듈 클론, DAPS에 setproctitle 설치뿐).
+
+| 방법 | 유형 | PSNR (mean / best-of-4) | SSIM | meas. err | 시간/장 |
+|---|---|---|---|---|---|
+| dummy | placeholder | 6.3 | 0.076 | 0.95 | 0.01 s |
+| **HIO** (스캐폴드 구현) | 고전 | **15.1** | 0.216 | **0.141** | 1.2 s |
+| Wirtinger Flow (스캐폴드 구현) | 고전 | 12.5 | 0.147 | 0.147 | 6.6 s |
+| TV (스캐폴드 구현) | 고전 | 12.6 | 0.159 | 0.146 | 10.7 s |
+| DPS (ICLR 2023, 체크포인트) | diffusion | 12.5 / **18.8** | 0.539 | 0.268 | ~150 s/run |
+| **DAPS** (NeurIPS 2024, 체크포인트) | diffusion | 27.5 / **30.3** | **0.795** | 0.156 | ~30 s/run |
+
+![GT vs dummy/HIO/WF/TV/DPS/DAPS](assets/ffhq10_method_comparison.png)
+
+핵심 관찰:
+
+1. **DAPS 재현 성공**: 자체 평가 30.36 dB(논문 30.72), 우리 통일 metric best-of-4 30.34 dB — 거의 완벽한 복원이 안정적으로 나온다.
+2. **DPS의 불안정성도 문헌대로 재현**: run 간 5~15 dB 편차, 성공 시 30 dB/실패 시 12 dB(위 그림 2·3행). best-of-4 18.8 dB는 DPS 논문 보고(~17.4)와 부합.
+3. **고전 방법의 한계 확인**: HIO가 고전 중 최선(15.1 dB)이나 σ=0.05 노이즈에서 구조만 겨우 복원. RGB를 채널별 독립 PR로 풀어 색이 어긋나는 것도 뚜렷한(그림) 고전 방법의 구조적 한계다 — diffusion prior는 채널 결합을 prior가 처리한다.
+4. **measurement error와 PSNR의 괴리**: HIO(0.141)가 DAPS(0.156)보다 measurement에는 더 잘 맞지만 PSNR은 15 dB 낮다 — nonlinear inverse problem의 ambiguity/local minimum 문제를 정량적으로 보여주는 사례로, 스캐폴드가 두 지표를 병기하는 이유다.
+
+부수 확인(DIV2K 32장, grayscale 256px, 동일 forward): HIO 14.8 / WF 13.2 / TV 13.3 / dummy 6.8 dB.
+
+재현 커맨드: 스캐폴드 `configs/phase_retrieval_div2k_dps.yaml` + `--set reconstructor.name={hio,wirtinger_flow,tv}`; DPS/DAPS는 `/home/dgbae/data/baselines/`의 공식 레포 README 커맨드 그대로(run_info는 `outputs/metrics/*.json`).
+
 ## 5. TODO 로드맵
 
-- [ ] Wirtinger Flow baseline (스펙트럼 초기화 + gradient descent)
-- [ ] TV-regularized optimization
+- [x] Wirtinger Flow baseline (autograd, 2026-07-03) — 스펙트럼 초기화는 TODO
+- [x] TV-regularized optimization (2026-07-03)
 - [ ] U-Net denoiser prior
 - [ ] Unrolled reconstruction network
-- [ ] Diffusion prior
+- [x] Diffusion prior 실험 (DPS/DAPS 공식 체크포인트, 2026-07-03) — 스캐폴드 내장 구현은 TODO
 - [ ] Coded diffraction masks (다중 마스크 측정)
 - [x] Poisson noise (DPS 방식, 2026-07-03) — noise robustness 실험은 TODO
+- [x] HIO baseline (2026-07-03)
 - [ ] Ablation runner
 - [x] DIV2K valid set 다운로드+전처리 (2026-07-03) — train set(800장)은 학습 단계에서 추가
 
