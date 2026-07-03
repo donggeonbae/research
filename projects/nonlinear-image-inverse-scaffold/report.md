@@ -41,10 +41,11 @@ $x\in[0,1]^{C\times H\times W}$, $A$는 centered orthonormal 2D FFT, pad는 DPS�
 | TV | 13.0 | 0.152 | 0.157 | 10.7 s |
 | HIO | 13.7 | 0.178 | **0.149** | 1.2 s |
 | **PnP-UNet (자체 학습)** | **14.0** | **0.269** | 0.157 | 3.3 s |
+| DPS (체크포인트) | 11.0 | 0.200 | 0.448 | ~150 s |
 | **DAPS (체크포인트)** | **26.3** | **0.691** | 0.165 | ~30 s |
-| DPS (체크포인트) | *실행 중 (single-run, ~2.5 h) — 완료 시 갱신* | | | ~150 s |
 
 - DAPS single-run 26.3 dB(중앙값 29.4): 100장 중 20장이 <20 dB로 실패 — single run에서도 bimodal posterior의 mode 실패가 남는다(4-run이면 소거, §4 참조). DAPS 자체 평가는 25.0 dB(std 8.7)로 우리 채점과 일관(정합 유무 차이).
+- **DPS single-run 11.0 dB(100장 전부 <20 dB)**: best-of-N 없이 단일 run으로는 좋은 mode에 거의 도달하지 못한다 — §4의 best-of-4(18.8 dB)와의 격차가 DPS 계열 수치를 읽을 때 프로토콜 명시가 필수인 이유를 100장 규모로 재확인해준다. 같은 single-run 조건에서는 자체 학습 PnP-UNet(14.0)이 DPS(11.0)보다 높다.
 - **PnP-UNet이 in-repo 최선**: PSNR은 HIO +0.3 dB지만 SSIM은 +0.09 — denoiser prior가 구조 복원에 크게 기여(몽타주에서 시각적으로 확인).
 
 ## 4. 결과 ② — head-to-head 10장 (DAPS demo set, 4-run 프로토콜)
@@ -87,7 +88,6 @@ python scripts/eval_external_recons.py --gt <GT dir> --recon <recon dir> --out <
 
 ## 7. TODO
 
-- [ ] DPS FFHQ-100 single-run 수치 반영 (실행 중)
 - [ ] Wirtinger Flow 스펙트럼 초기화
 - [ ] In-repo unrolled network / diffusion prior (DAPS 구조 우선 후보 — 리뷰 §3 참조)
 - [ ] Coded diffraction masks, noise robustness sweep, ablation runner
