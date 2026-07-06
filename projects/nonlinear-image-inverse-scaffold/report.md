@@ -1,97 +1,123 @@
-# Nonlinear Image Inverse — Phase Retrieval FFHQ-256 벤치마크
+# 이미지 역문제와 Diffusion Prior — 재현 벤치마크와 "정확한 데이터 스텝(R-bridge)" 검증
 
-이미지 nonlinear inverse problem(phase retrieval) 실험 프로젝트의 통합 보고서다. 처음에는 파이프라인 검증용 scaffold로 출발했으나 현재는 **실제 벤치마크 프로젝트**다: 고전 베이스라인(HIO/WF/TV)과 학습 기반 PnP-UNet(자체 학습)을 in-repo로 구현했고, 표준 베이스라인 DPS(ICLR 2023)·SOTA DAPS(CVPR 2025)를 공식 체크포인트로 실행해 **동일 프로토콜로 비교**했다. 데이터셋은 두 논문의 표준 벤치마크인 **FFHQ-256으로 통일**했다.
+이 프로젝트는 phase retrieval 스캐폴드에서 출발해, **여러 이미지 역문제(inverse problem)를 diffusion prior로 푸는 방법들을 동일 프로토콜로 재현·비교**하고, 그 위에서 **"데이터 정합 스텝을 정확한 posterior 평균으로 바꾸면 무슨 일이 일어나는가"** 라는 방법론 가설을 검증한 기록이다. 결론은 긍정과 부정이 뚜렷이 갈린다: 정확한 forward 모델에서는 강력하게 일반화하지만, forward 모델이 틀리면 diffusion annealing이 오히려 악화시킨다.
 
-- **코드**: 로컬 `nonlinear_image_inverse/` (`src/evaluate.py` 진입점, config 기반; 舊 `nonlinear_image_inverse_scaffold`는 심링크로 유지)
-- **W&B**: `oisl/nonlinear-image-inverse-scaffold` · **논문 리뷰**: [DPS vs DAPS 리뷰](https://donggeonbae.github.io/review/projects/dps-daps-phase-retrieval/) (`donggeonbae/review`)
-- **작성일**: 2026-07-03 (전면 재작성 — scaffold 프레이밍 해제, FFHQ 전환, U-Net denoiser 추가)
-
-![GT vs dummy/HIO/WF/TV/PnP-UNet/DPS/DAPS](assets/ffhq10_method_comparison.png)
+- **코드**: 로컬 `nonlinear_image_inverse/` (in-repo 방법·채점), `baselines/` (DPS·DAPS 공식 레포 + 우리 변형 브랜치 `codex/wiener-prox`)
+- **작성일**: 2026-07-06 · **W&B**: `oisl/nonlinear-image-inverse-scaffold` · **논문 리뷰**: [DPS vs DAPS](https://donggeonbae.github.io/review/projects/dps-daps-phase-retrieval/)
 
 ---
 
-## 1. 문제 정의와 forward model
+## 0. Diffusion을 어디에 쓰는가 (용어 정리)
 
-$$y = |A(\text{pad}(x))| + \eta$$
+모든 SOTA 계열 방법(DPS, DAPS, 그리고 우리 변형 cg_prox)은 **사전학습된 FFHQ diffusion model(`ffhq_10m.pt`)을 공유 prior**로 쓴다. 역문제를 푸는 과정은 diffusion 샘플링 궤적을 따라 내려가면서, 매 노이즈 레벨에서 measurement $y$에 맞추는 "데이터 스텝"을 끼워넣는 구조다.
 
-$x\in[0,1]^{C\times H\times W}$, $A$는 centered orthonormal 2D FFT, pad는 DPS식 oversampling($\text{pad}=\lfloor\frac{o}{8}H\rfloor$/side, $o{=}2.0$: 256→384), $\eta$는 측정영역 Gaussian($\sigma{=}0.05$). **DPS 공식 코드와 비트 단위로 같은 설정**이며(centered FFT=`fft2_m`, pad 공식, amplitude 측정), intensity($|Ax|^2$)와 DPS식 Poisson noise도 지원한다. 위상 소실로 문제는 nonlinear·ill-posed이고 해는 180° 회전·순환 이동 모호성을 가진다 — 채점 전 전역 정합(`resolve_global_ambiguity`)은 문헌 표준 관행을 따른 것.
+DAPS의 기하(아래 §4)로 말하면: 노이즈 레벨 $t$의 상태 $x_t$는 manifold $M_t$ 위에 있고, ① diffusion으로 깨끗한 추정 $\hat{x}_{0|t}$($M_0$ 위 점)를 만든 뒤, ② 그 근방에서 $y$에 맞추는 데이터 스텝을 밟고, ③ 다시 노이즈를 얹어 $M_{t-1}$로 간다. **우리가 손댄 것은 오직 ②(데이터 스텝)이고, prior인 diffusion(①③)은 그대로 쓴다.** 고전 방법(HIO/Wirtinger Flow/TV)과 PnP-UNet만 diffusion을 쓰지 않는다.
 
-## 2. 방법
+---
 
-**In-repo 구현** (`src/reconstructors/`, registry 등록·config 선택):
+## 1. 재현 벤치마크 (FFHQ-256, 동일 forward·noise·정합 프로토콜)
 
-| 이름 | 내용 |
-|---|---|
-| `hio` | Hybrid Input-Output(β=0.9) + ER polish, oversampling 패딩=support 제약, best-of-4 restarts |
-| `wirtinger_flow` | amplitude loss $\||A(x)|-y\|^2$에 Adam + [0,1] projection, best-of-3 |
-| `tv` | 위 + isotropic TV |
-| `pnp_unet` | **자체 학습 U-Net denoiser prior** + PnP-FBS(HIO warm start → gradient step과 denoising 교대) |
-| `dummy` | $|A^H y|$ — 파이프라인 sanity용, 유효한 방법 아님 |
+먼저 공개 체크포인트로 DPS(ICLR 2023)·DAPS(CVPR 2025)를 재현하고, 우리 in-repo 고전·학습 방법을 같은 채점기로 비교했다. 논문 수치를 재현함으로써 이후 방법론 실험의 baseline 신뢰도를 확보하는 것이 목적이다.
 
-**U-Net denoiser 학습**: 1.05M 파라미터 residual U-Net(3-scale, GroupNorm/SiLU, noise residual 예측), blind Gaussian denoising($\sigma\sim U[0.01,0.2]$), **FFHQ val 뒤쪽 900장(49100–49999)으로 학습 — 벤치마크 100장(49000–49099)과 분리**. 20k steps/18분(A6000), held-out에서 $\sigma{=}0.05$ 노이즈 26.2→37.2 dB. `python src/train.py --config configs/train_unet_denoiser.yaml`.
+![여러 방법의 phase retrieval 복원 비교](assets/ffhq10_method_comparison.png)
 
-**체크포인트 실행**: DPS·DAPS 공식 레포(`/home/dgbae/data/baselines/`) + 공식 `ffhq_10m.pt`(FFHQ-256 DDPM). 출력은 `scripts/eval_external_recons.py`로 동일 forward·noise seed·정합 기준 채점.
+*그림 1. Phase retrieval(진폭 측정, oversample 2.0, σ=0.05) 복원 비교. 좌→우: GT, dummy, HIO, Wirtinger Flow, TV, PnP-UNet, DPS, DAPS. 소스: `nonlinear_image_inverse/scripts/make_method_montage.py`, 산출물 `outputs/figures/ffhq10_method_comparison.png`.*
 
-## 3. 결과 ① — FFHQ-100 벤치마크 (49000–49099, 256px RGB, single-run)
-
-| 방법 | PSNR | SSIM | meas. err | 시간/장 |
+| Task (FFHQ) | 최고 고전/학습 (in-repo) | DPS | DAPS | 논문 대조 |
 |---|---|---|---|---|
-| dummy | 6.5 | 0.071 | 0.953 | 0.01 s |
-| Wirtinger Flow | 12.9 | 0.144 | 0.158 | 6.6 s |
-| TV | 13.0 | 0.152 | 0.157 | 10.7 s |
-| HIO | 13.7 | 0.178 | **0.149** | 1.2 s |
-| **PnP-UNet (자체 학습)** | **14.0** | **0.269** | 0.157 | 3.3 s |
-| DPS (체크포인트) | 11.0 | 0.200 | 0.448 | ~150 s |
-| **DAPS (체크포인트)** | **26.3** | **0.691** | 0.165 | ~30 s |
+| Phase retrieval | HIO 13.7 · PnP-UNet 14.0 | 13.5 (single) / 18.8 (best-of-4) | **26.3 (single) / 30.3 (best-of-4)** | DAPS 30.72 ✓ |
+| Coded diffraction (4-mask) | HIO 28.4 · **PnP-UNet 36.4** | — | — | — |
+| Nonlinear deblur | — | 23.0 | **28.5** | DAPS 28.29 ✓ |
+| HDR | — | — | **27.4** | DAPS 27.12 ✓ |
 
-- DAPS single-run 26.3 dB(중앙값 29.4): 100장 중 20장이 <20 dB로 실패 — single run에서도 bimodal posterior의 mode 실패가 남는다(4-run이면 소거, §4 참조). DAPS 자체 평가는 25.0 dB(std 8.7)로 우리 채점과 일관(정합 유무 차이).
-- **DPS single-run 11.0 dB(100장 전부 <20 dB)**: best-of-N 없이 단일 run으로는 좋은 mode에 거의 도달하지 못한다 — §4의 best-of-4(18.8 dB)와의 격차가 DPS 계열 수치를 읽을 때 프로토콜 명시가 필수인 이유를 100장 규모로 재확인해준다. 같은 single-run 조건에서는 자체 학습 PnP-UNet(14.0)이 DPS(11.0)보다 높다.
-- **PnP-UNet이 in-repo 최선**: PSNR은 HIO +0.3 dB지만 SSIM은 +0.09 — denoiser prior가 구조 복원에 크게 기여(몽타주에서 시각적으로 확인).
-
-## 4. 결과 ② — head-to-head 10장 (DAPS demo set, 4-run 프로토콜)
-
-Diffusion 방법의 논문 프로토콜(best-of-4)로 전 방법 비교:
-
-| 방법 | PSNR (mean / best-of-4) | SSIM | meas. err |
-|---|---|---|---|
-| dummy | 6.3 | 0.076 | 0.95 |
-| WF | 12.5 | 0.147 | 0.147 |
-| TV | 12.6 | 0.159 | 0.146 |
-| HIO | 15.1 | 0.216 | 0.141 |
-| **PnP-UNet** | **15.6** | **0.336** | 0.150 |
-| DPS | 12.5 / **18.8** | 0.539 | 0.268 |
-| **DAPS** | 27.5 / **30.3** | **0.795** | 0.156 |
-
-핵심 관찰:
-
-1. **DAPS 재현 성공** — 자체 평가 30.36 dB(논문 30.72), 통일 채점 best-of-4 30.34 dB. DPS best-of-4 18.8 dB도 문헌치(17.6)와 부합, run 간 대분산까지 문헌대로.
-2. **학습 prior의 가치가 규모 순서로 정렬**: 손수 만든 1M U-Net(+0.5 dB, SSIM +0.12) ≪ 사전학습 diffusion prior(+15 dB). prior의 표현력이 성능 사다리를 결정한다.
-3. **measurement error ↔ 화질 괴리**: HIO(0.141)가 DAPS(0.156)보다 measurement에 더 잘 맞지만 PSNR은 15 dB 낮음 — nonlinear 문제의 ambiguity/local minimum을 정량화하는 사례. 두 지표 병기가 이 프로젝트의 기본 설계인 이유.
-4. 고전 방법의 RGB 채널별 독립 PR로 인한 색 어긋남(몽타주)도 구조적 한계로 확인 — PnP-UNet은 denoiser가 채널을 결합해 이를 완화.
-
-## 5. 보조 결과 — DIV2K valid 32장 (grayscale 256px, 동일 forward)
-
-HIO 14.8 / TV 13.3 / WF 13.2 / dummy 6.8 dB. 얼굴 도메인이 아니어도 고전 방법 순위는 동일.
-
-## 6. 재현 가이드
-
-```bash
-# in-repo 방법 (nonlinear_image_inverse/)
-python src/evaluate.py --config configs/phase_retrieval_ffhq.yaml --set reconstructor.name=pnp_unet
-python src/train.py --config configs/train_unet_denoiser.yaml     # denoiser 재학습
-
-# 외부 방법 채점
-python scripts/eval_external_recons.py --gt <GT dir> --recon <recon dir> --out <json>
-```
-
-자산: 체크포인트 `outputs/checkpoints/unet_denoiser_ffhq.pt`(자체)·`/home/dgbae/data/baselines/checkpoints/dps-checkpoint/ffhq_10m.pt`(공식), FFHQ val 1000장 `data/raw/ffhq256_val`, 채점 JSON `outputs/metrics/`, 몽타주 `scripts/make_method_montage.py`. HTML 대시보드는 각 `outputs/reports_*/latest.html`, W&B `oisl/nonlinear-image-inverse-scaffold`.
-
-## 7. TODO
-
-- [ ] Wirtinger Flow 스펙트럼 초기화
-- [ ] In-repo unrolled network / diffusion prior (DAPS 구조 우선 후보 — 리뷰 §3 참조)
-- [ ] Coded diffraction masks, noise robustness sweep, ablation runner
+두 가지가 확인된다. (a) **DAPS 재현 성공** — nonlinear deblur/HDR/PR 모두 논문 수치와 0.3~0.4 dB 이내. (b) **측정 다양성이 문제를 바꾼다**: 단일 진폭 측정(PR)은 HIO 13.7에 그치지만, coded diffraction으로 마스크 4장을 쓰면 위상 모호성이 깨져 HIO 28.4, 학습 prior(PnP-UNet)를 얹으면 **36.4 dB**로 거의 완벽 복원. (PR single-run 100장에서 DAPS도 20% 실패하는데, 이는 bimodal posterior의 mode 실패로 best-of-N 프로토콜이 필요한 이유다.)
 
 ---
 
-*출처: 로컬 `nonlinear_image_inverse/`(구현·채점·그림 생성 코드), `/home/dgbae/data/baselines/`(DPS/DAPS 공식 레포·체크포인트), 그림은 `outputs/figures/ffhq10_method_comparison.png` 및 `outputs/metrics/`. 논문 리뷰: donggeonbae/review `dps-daps-phase-retrieval`.*
+## 2. 방법 가설: 데이터 스텝을 "정확한 posterior 평균"으로 (cg_prox / R-bridge)
+
+DAPS의 데이터 스텝은 $p(x_0 \mid x_t, y)$에서 **100-step Langevin MCMC**로 샘플링한다. 그런데 forward가 **선형**($y = Ax + n$)이면 이 분포는 **정확히 Gaussian**이고, 그 평균은 닫힌형 선형계
+
+$$\Big(\tfrac{A^\top A}{\sigma^2} + \tfrac{1}{r_t^2} I\Big)\, x \;=\; \tfrac{A^\top y}{\sigma^2} + \tfrac{\hat{x}_{0|t}}{r_t^2}$$
+
+의 해다. $A, A^\top$를 FFT로 싸게 곱할 수 있으니 **CG(conjugate gradient)로 15~25회 반복**하면 정확해에 수렴한다. 이것이 `cg_prox`다 — MCMC 샘플링을 정확한 데이터 정합 풀이로 대체하고, $\hat{x}_{0|t}$를 앵커로 삼아 diffusion prior와 균형을 맞춘다. (중요: **결정론적 평균**으로만 유효하다. §3 참고.)
+
+### 2.1 긍정 결과 — 물리 연산자 전반으로 일반화
+
+![선형 R-bridge 일반화](assets/rbridge_generalization.png)
+
+*그림 2. cg_prox vs DAPS, 5개 forward 연산자, σ=0.15, FFHQ n=10. 소스: `baselines/DAPS/cores/mcmc.py`(sample_cg_prox) + `scripts/noise_sweep_gaussian_blur.py`, 산출물 `baselines/DAPS/results/round5/grid.json`.*
+
+같은 cg_prox 레시피를 **새 물리 연산자(MRI 부분샘플 푸리에, ASM 광 전파)와 DAPS 네이티브 task(Gaussian deblur, super-resolution, inpainting)** 다섯 개에 그대로 적용했다. 결정론적 평균으로 채점:
+
+| 연산자 (σ=0.15) | DAPS | cg_prox | Δ | LPIPS (DAPS→cg) |
+|---|---|---|---|---|
+| MRI (4× 부분샘플) | 27.7 | **30.3** | +2.6 | 0.25→0.16 |
+| ASM 광 전파 | 19.8 | **29.5** | +9.7 | 0.46→0.19 |
+| Gaussian deblur | 20.7 | **28.0** | +7.3 | 0.56→0.20 |
+| Super-resolution | 20.4 | **26.9** | +6.5 | 0.58→0.23 |
+| Inpainting | 21.6 | 23.4 | +1.8 | 0.35→0.25 |
+
+exact posterior-평균 데이터 스텝은 **다섯 연산자 모두에서 DAPS를 앞서고**(PSNR·LPIPS 동시), 고노이즈에서 특히 크며, 1.5~1.8× 빠르다. inpainting만 이득이 작은데, 이는 $A^\top A$가 투영이라 정확 풀이의 여지가 적기 때문으로 합리적이다. **"forward 커널 하나(deblur)에서만 되는 것 아니냐"는 우려를 이 일반화가 정면으로 반박한다.**
+
+---
+
+## 3. 정직한 귀속 분석 — 무엇이 이득의 원천인가
+
+적대적 리뷰(다중 에이전트, 30개 공격)가 초기 주장을 해체했고, 재실험으로 다음을 확정했다.
+
+- **cg_prox는 "샘플"이 아니라 평균으로만 유효**하다. CG 평균 주변을 실제로 샘플링하면 −9~11 dB 붕괴(σ0.15에서 28.0→17.1). 따라서 "정확한 posterior **샘플**"이라 부르면 과장이고, "정확한 posterior **평균(MMSE)** 데이터 스텝"이 정확한 표현이다. 다만 이 평균은 **LPIPS도 최고**라 단순 회귀-평균 과평활은 아니다.
+- **DWDN(학습 deconvolution) 초기화는 오히려 해가 된다** (σ0.15에서 dwdn_init 22.2 < cg_prox 28.0). 초기 리뷰가 "이득은 대부분 DWDN 덕"이라 추측했으나 실측은 반대였다 — 학습 inverse 트랙은 폐기.
+- **baseline 튜닝의 몫**: DAPS Langevin lr을 노이즈에 맞춰 낮추면(1e-5) σ0.15에서는 cg_prox와 사실상 동률(27.96 vs 27.99). 그러나 **σ0.30에서는 튜닝 후에도 cg_prox가 +1.79 dB, LPIPS 우위** — 고노이즈 이득은 baseline 미스튜닝 착시가 아니라 실재한다.
+
+즉 방어 가능한 클레임은 좁고 정직하다: **"선형 역문제에서 정확한 posterior-평균 데이터 스텝은 고노이즈에서 빠르고 지각적으로 강한 drop-in이며 여러 물리 연산자로 일반화된다 — 단 결정론적 평균으로."**
+
+---
+
+## 4. 핵심 부정 결과 — annealing은 틀린 forward를 고치지 못한다
+
+가장 흥미로운 질문은 이것이었다: **forward/inverse 모델이 부정확해도, diffusion annealing이 그 오차를 보정해 정답 근처로 데려갈 수 있는가?** ("네트워크와 annealing이 manifold 불일치를 해결한다"는 가설.) 이를 직접 측정하기 위해, cg_prox에 **일부러 틀린 커널**(진짜 대비 $m$배 넓은 blur)을 주고 두 조건을 비교했다: (a) cg만 — diffusion 루프 없이 편향된 평균 한 번, (b) DAPS-annealed — 그 편향된 데이터 스텝을 diffusion 루프에 넣어 전체 궤적 실행.
+
+![편향-회복 곡선](assets/bias_recovery_clean.png)
+
+*그림 3. 커널 미스매치 $m$에 따른 PSNR. 소스: `baselines/DAPS/scripts` bias-recovery 러너, 산출물 `baselines/DAPS/results/round5/bias_recovery.json`. Gaussian deblur, FFHQ.*
+
+| 미스매치 $m$ | cg만 | DAPS-annealed | 격차 (b−a) |
+|---|---|---|---|
+| 1.0 (정확) | 25.4 | 29.5 | **+4.1** |
+| 1.25 | 25.0 | 24.1 | −0.8 |
+| 1.5 | 22.4 | 18.1 | −4.3 |
+| 2.0 | 18.3 | 12.4 | **−5.9** |
+
+**가설은 반증됐다.** 정확한 모델($m{=}1.0$)에서는 annealing이 +4.1 dB 정제한다(예상대로). 그러나 forward가 조금이라도 틀리면($m{\ge}1.25$) annealing이 **오히려 손해를 키우고**, 미스매치가 클수록 급격히 악화된다(−5.9까지). 게다가 cg만 쓰면 편향에 우아하게 저하(25→18)하는데, annealed는 급붕괴(29→12) — **diffusion-in-the-loop가 forward-model 오차에 오히려 취약**하다.
+
+메커니즘: 편향된 데이터 스텝이 매 레벨 *확신에 찬 틀린 목표*를 재주입하고, prior가 강한(틀린) 데이터 항을 이기지 못한다. **결론적 구분**: diffusion annealing이 보정하는 것은 *자신의 불완전한 prior 추정 $\hat{x}_{0|t}$*(manifold 오차)이지, **forward/데이터-모델의 편향이 아니다**. 강건성을 원하면 annealing에 기대지 말고 커널을 실제로 추정해야 한다(blind/joint estimation — 향후 과제).
+
+---
+
+## 5. 진단 — 주파수별 measurement→prior 지배권 교대
+
+선형 문제에서 각 주파수 $f$의 measurement 정밀도는 $|K(f)|^2/\sigma^2$, prior 정밀도는 $1/r_t^2$이고, 둘이 교차하는 레벨 $t^*(f):\ r_{t^*}^2 = \sigma^2/|K(f)|^2$이 "그 대역의 지배권이 넘어가는 지점"이다 — 스칼라가 아니라 **주파수별 곡선**이다.
+
+![주파수-레벨 오차 스펙트럼](assets/phase_bands_gb.png)
+
+*그림 4. 어닐링 레벨 × 방사 주파수 오차 스펙트럼(로그), 해석적 교차 곡선 $t^*(f)$ 오버레이. Gaussian deblur σ=0.15. 소스: `baselines/DAPS` 계측 훅, 산출물 `results/round3a/inst_gb_sigma0p15/phase_bands.png`.*
+
+정성적으로 데이터 스텝의 기여가 교차 곡선 왼쪽(measurement-지배 대역)에 집중되는 구조가 보인다. 다만 이를 정량적 "법칙"으로 부르기엔 근거가 약하다(선형 case에서 Pearson $r\approx-0.49$, 비선형 PR에서는 유의한 상관 없음). 이는 FGPS(ICCV 2025)·ΠGDM·DDRM·DiffPIR에 내재한 Wiener 가중을 하나의 대수적 객체로 정리한 **진단**으로 제시한다 — 새 법칙이 아니라. 실제로 phase retrieval에 이 가중을 적용한 band-split은 배포 가능 지표에서 유의한 개선을 주지 못했다(n=10, paired $p\approx0.75$).
+
+---
+
+## 6. 정리: 안전한 클레임과 열린 방향
+
+**방어 가능한 결론:**
+1. 공개 체크포인트로 DPS/DAPS를 FFHQ 다중 task에서 재현(논문 대비 ≤0.4 dB).
+2. 선형 역문제에서 **정확한 posterior-평균 데이터 스텝(cg_prox)**은 MRI·ASM·deblur·SR로 일반화, 고노이즈에서 DAPS 대비 +2~10 dB, LPIPS 우위, 1.5~1.8× 빠름 — **결정론적 평균으로만**.
+3. **diffusion annealing은 forward-model 편향을 보정하지 못한다** (정확 모델은 +4 dB 정제, 틀린 모델은 −6 dB 악화). 이는 annealing의 역할 범위를 명확히 한 부정 결과다.
+
+**넘겨짚지 말아야 할 것:** cg_prox가 "정확 샘플"로 DAPS를 최대 +10 dB 이긴다(→ 평균이며, σ0.15는 튜닝 시 동률) / band-split이 PR을 개선한다(→ 미검증) / $t^*(f)$가 궤적을 지배하는 법칙이다(→ 진단 수준).
+
+**열린 방향:** forward 오차에 강건하려면 annealing이 아니라 **커널을 함께 추정하는 blind 접근**(레벨별 $x$/$k$ blocked-Gibbs — cg_prox의 닫힌형이 $k$쪽에도 그대로 성립)이 필요하다. 물리 연산자(ASM/MRI)는 학습 편향이 없어 이 방향 검증에 가장 깨끗한 무대다.
+
+---
+
+*출처: `nonlinear_image_inverse/`(in-repo 방법·채점·그림), `baselines/DPS·DAPS`(공식 레포 + `codex/wiener-prox` 브랜치의 cg_prox/instrumentation/bias-recovery), 산출물 `baselines/DAPS/results/round3a·round3b·round5/`, `outputs/figures/`. 적대적 리뷰 메모: `baselines/DAPS/results/TRACKD_REVIEW_MEMO.md`.*
