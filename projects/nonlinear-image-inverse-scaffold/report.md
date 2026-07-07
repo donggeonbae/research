@@ -73,6 +73,8 @@ MRI·광전파·deblur·SR로 일반화, LPIPS도 우위. **정직한 caveat**: 
 
 **③ confidence-aware 데이터 스텝 (라운드 8)**: 주파수별 신뢰도 $w(f)$로 감가중 + 편향 $b(f)$ 감산 → **13.9 dB, −2 dB로 악화.** flat-sigma(=일반 baseline)가 최선(15.95).
 
+**④ blind PSF 추정 (naive blocked-Gibbs)**: 감가중 대신 forward를 직접 교정하려 커널 $K̂$를 $x$와 함께 추정(hard PSF prior·trust-region·δ-collapse guard 포함). 합성 gate(일부러 틀린 커널 m=1.5에서 시작)에서 **실패**: PSNR 18.1 → 12.4(회복 안 됨, 오라클 29.5), 커널 오차 0.043 → 0.088(참 커널로 수렴 못 하고 **wrong basin으로 drift**). δ-collapse는 막혔으나 non-convex 교대최적화가 엉뚱한 basin에 빠짐. 실측 DLMD는 gate 실패로 진행 안 함.
+
 ![lensless vs synthetic](assets/lensless_vs_synth.png)
 
 *그림 3. lensless 측정/Wiener(1행) vs 합성 blur(2행). 소스: `nonlinear_image_inverse` (WieNerDeconv). lensless 측정=형체 없는 glow, Wiener 오차=색편차 0.078·kurtosis 4.0(비-Gaussian 구조편향).*
@@ -95,7 +97,9 @@ MRI·광전파·deblur·SR로 일반화, LPIPS도 우위. **정직한 caveat**: 
 
 **명제**: diffusion inverse solver의 성능 천장은 forward 연산자의 정확도가 정한다. 정확하면 정확한 데이터 스텝(+선택적 prior)이 크게 돕고, 편향되면 어떤 prior·가중도 그 편향을 못 건넌다 — 특히 lensless처럼 편향이 신호와 저주파에서 얽힌 경우.
 
-**함의(향후)**: 실제 lensless를 살리려면 감가중이 아니라 **forward를 직접 교정**해야 한다 — blind PSF 추정(x/k joint), 즉 $A'\to A$. confidence 가중과 domain prior는 forward가 이미 정확할 때만 유효한 보조다.
+**forward 편향은 쉽게 안 고쳐진다 (4연속 부정 결과).** 이 경계를 넘으려는 네 가지 시도가 모두 실패했다: off-domain prior(hallucination), domain prior(미미), confidence 감가중(신호 얽힘), naive blind PSF(wrong basin). 특히 커널을 25%만 틀려도(bias-recovery $m$=1.25) annealed가 이미 −0.8 dB로 뒤집히고, 그 커널을 데이터에서 되찾으려는 naive blind는 non-convex basin에 빠진다. 즉 forward 편향은 tuning·prior·가중·naive-blind 어느 것으로도 구제되지 않는 **구조적 경계**다.
+
+**함의(향후)**: 실제 lensless를 살리려면 **정교한 blind 접근**(커널에 diffusion prior를 거는 BlindDPS류 + 스케줄링으로 wrong-basin 회피)이 필요하다 — naive blocked-Gibbs로는 부족. 그렇지 않으면 이 경계가 그대로 서 있다. confidence 가중과 domain prior는 forward가 이미 정확할 때만 유효한 보조다.
 
 ---
 
