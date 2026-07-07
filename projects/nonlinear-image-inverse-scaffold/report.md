@@ -37,6 +37,10 @@ DAPS의 데이터-정합 스텝(확률적 Langevin 100스텝)을 **정확한 pos
 | Super-resolution | 20.4 | **26.9** | +6.5 |
 | Inpainting | 21.6 | 23.4 | +1.8 |
 
+![DAPS vs cg_prox 시각 비교](assets/daps_vs_cgprox_visual.png)
+
+*그림 1b. 같은 이미지의 실제 복원: 측정 y | DAPS(Langevin) | cg_prox(정확 CG) | GT, 4개 연산자 σ=0.15. **DAPS는 이 노이즈 레벨(미튜닝)에서 노이즈·아티팩트가 심하고 cg_prox는 GT에 깨끗이 일치** — +2~10 dB 차이의 시각 증거. 소스: `results/round5/runs/grid_*_sigma0p15_{daps,cg_prox}/grid_results.png`. (튜닝된 DAPS는 아래 caveat 참고.)*
+
 MRI·광전파·deblur·SR로 일반화, LPIPS도 우위. **정직한 caveat**: (a) cg_prox는 **결정론적 평균**으로만 유효(샘플링 켜면 −9~11 dB 붕괴), (b) σ=0.15의 큰 이득은 baseline 미튜닝 착시 — DAPS Langevin lr을 튜닝하면 σ=0.15에서 **동률**(27.96 vs 27.99). 순수 이득이 남는 건 **고노이즈 σ=0.30**(튜닝 후에도 +1.8 dB, LPIPS 우위). 알고리즘 자체는 DDS(ICLR'24)의 CG-in-diffusion과 겹치므로 신규성이 아니라 **일반화 실증**으로 제시한다.
 
 ---
