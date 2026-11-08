@@ -95,6 +95,110 @@ PSNR(dB) / SSIM, seed 0. "512 디코더 → 256" 열은 512 출력을 면적 평
 - **PSNR은 마스크 0.5에서만 올라요(+0.45 dB). 0.7과 0.8은 SSIM이 조금 오르고 PSNR은 그대로예요.** PSNR은 저주파에 좌우돼서 가는 디테일이 늘어도 거의 움직이지 않아요.
 - **512에서 0.5와 0.7은 0.25 cycles/px 이상에서 같고, 그 아래에서는 0.5가 앞서요. 0.8은 0.1–0.45 cycles/px에서 0.05–0.1 낮아요.**
 
+## 학습 순서대로 본 모든 디코더 — 전체 프레임과 중앙 확대
+
+이 프로젝트에서 학습한 모든 디코더를 학습한 순서대로, 같은 배치로 그렸어요. 열은 마스크 거리마다 (입력, 출력)이고 마지막이 정답이에요. 행은 그림 2와 같은 테스트 장면 6개예요. 타일마다 원래 해상도를, 출력마다 장별 PSNR을 적었어요.
+
+- **전체 프레임:** 512px 타일이에요. 512 런은 1:1로, 256 런은 nearest 2배로 표시했어요.
+- **중앙 확대:** 프레임 중앙 50%를 256px 타일로 보여요. 512 런은 1:1(512px 중 256px), 256 런은 nearest 2배(256px 중 128px)예요.
+- **정답:** COCO `sqcrop_1024` 정답을 런의 해상도로 면적 평균 축소한 이미지예요.
+- **raw 런:** 마스크 0.8 데이터가 raw 런을 다 돌린 뒤에 들어와서, raw 런은 0.5와 0.7만 있어요.
+
+| # | 시작 | 입력(해상도) | 런 | PSNR 0.5 | PSNR 0.7 | PSNR 0.8 |
+|---|---|---|---|---|---|---|
+| 1 | 11-06 08:04 | 센서 원본 5472×3648을 어파인 변환해 512×512로 | 이전 Wiener-NAF 체크포인트에서 이어서 학습한 NAFNet; 처음부터 학습하기로 해서 epoch 0 뒤 중단 | 18.22 (ep0) | 17.91 (ep0) | – |
+| 2 | 11-06 08:13 | 센서 원본 5472×3648을 어파인 변환해 512×512로 | Restormer(트랜스포머), 배치 2; 느리고 NAFNet보다 뒤처져 epoch 5에서 중단 | 18.84 (ep5) | 18.34 (ep5) | – |
+| 3 | 11-06 08:32 | 센서 원본 5472×3648을 어파인 변환해 512×512로 | NAFNet, 처음부터 학습(기준선) | 19.79 (ep15) | 19.18 (ep19) | – |
+| 4 | 11-06 12:41 | 센서 원본 5472×3648을 어파인 변환해 512×512로 | CGNet(CascadedGaze), 처음부터 학습 | 19.73 (ep26) | 18.96 (ep14) | – |
+| 5 | 11-07 02:14 | 센서 원본 5472×3648을 어파인 변환해 512×512로 | 과적합 대응용 경량 NAFNet(1.75M 파라미터); 과소적합 | 17.99 (ep27) | 17.70 (ep29) | – |
+| 6 | 11-07 02:45 | 센서 원본 5472×3648을 어파인 변환해 512×512로 | 중간 크기 NAFNet(11.6M 파라미터); 여전히 기본 NAFNet보다 낮음 | 18.50 (ep15) | 18.10 (ep17) | – |
+| 7 | 11-07 07:57 | 센서 원본 5472×3648을 어파인 변환해 512×512로 | NAFNet + 선형광 mixup(p 0.5) + EMA 0.999 | 20.10 (ep25) | 19.56 (ep23) | – |
+| 8 | 11-07 07:57 | 센서 원본 5472×3648을 어파인 변환해 512×512로 | NAFNet + mixup + EMA + FFT 손실 0.2(raw 최고) | 20.19 (ep21) | 19.59 (ep23) | – |
+| 9 | 11-07 17:41 | Wiener recon 256×256(nearest 2배로 표시) | NAFNet + EMA + FFT 손실, 256 Wiener recon | 21.17 (ep17) | 20.88 (ep16) | 20.38 (ep16) |
+| 10 | 11-08 05:40 | Wiener recon 512×512 | 같은 설정, 512 Wiener recon, 배치 4 | 21.11 (ep13) | 20.41 (ep13) | 19.87 (ep11) |
+
+각 런의 테스트 PSNR 최고 체크포인트(dB). raw와 512는 512에서, recon 256은 256에서 측정했어요. 소스: `PrivacyLensless/history_plot.py`; 산출물: `figs/history/runs.csv`.
+
+![raw_naf_ft full](assets/history/01_raw_naf_ft_full.jpg)
+
+그림 H1a. 런 1, 전체 프레임: 이전 Wiener-NAF 체크포인트에서 이어서 학습한 NAFNet; 처음부터 학습하기로 해서 epoch 0 뒤 중단. 입력: 센서 원본 5472×3648을 어파인 변환해 512×512로. 체크포인트: `PL_04_naf_ft_20261106-080416.pth`, `PL_06_naf_ft_20261106-080416.pth`. 소스: `PrivacyLensless/history_plot.py`; 산출물: `figs/history/01_raw_naf_ft_full.jpg`.
+
+![raw_naf_ft crop](assets/history/01_raw_naf_ft_crop.jpg)
+
+그림 H1b. 런 1, 중앙 확대: 이전 Wiener-NAF 체크포인트에서 이어서 학습한 NAFNet; 처음부터 학습하기로 해서 epoch 0 뒤 중단. 입력: 센서 원본 5472×3648을 어파인 변환해 512×512로. 체크포인트: `PL_04_naf_ft_20261106-080416.pth`, `PL_06_naf_ft_20261106-080416.pth`. 소스: `PrivacyLensless/history_plot.py`; 산출물: `figs/history/01_raw_naf_ft_crop.jpg`.
+
+![raw_restormer full](assets/history/02_raw_restormer_full.jpg)
+
+그림 H2a. 런 2, 전체 프레임: Restormer(트랜스포머), 배치 2; 느리고 NAFNet보다 뒤처져 epoch 5에서 중단. 입력: 센서 원본 5472×3648을 어파인 변환해 512×512로. 체크포인트: `PL_04_restormer_20261106-081330.pth`, `PL_06_restormer_20261106-081548.pth`. 소스: `PrivacyLensless/history_plot.py`; 산출물: `figs/history/02_raw_restormer_full.jpg`.
+
+![raw_restormer crop](assets/history/02_raw_restormer_crop.jpg)
+
+그림 H2b. 런 2, 중앙 확대: Restormer(트랜스포머), 배치 2; 느리고 NAFNet보다 뒤처져 epoch 5에서 중단. 입력: 센서 원본 5472×3648을 어파인 변환해 512×512로. 체크포인트: `PL_04_restormer_20261106-081330.pth`, `PL_06_restormer_20261106-081548.pth`. 소스: `PrivacyLensless/history_plot.py`; 산출물: `figs/history/02_raw_restormer_crop.jpg`.
+
+![raw_naf full](assets/history/03_raw_naf_full.jpg)
+
+그림 H3a. 런 3, 전체 프레임: NAFNet, 처음부터 학습(기준선). 입력: 센서 원본 5472×3648을 어파인 변환해 512×512로. 체크포인트: `PL_04_naf_20261106-083210.pth`, `PL_06_naf_20261106-083210.pth`. 소스: `PrivacyLensless/history_plot.py`; 산출물: `figs/history/03_raw_naf_full.jpg`.
+
+![raw_naf crop](assets/history/03_raw_naf_crop.jpg)
+
+그림 H3b. 런 3, 중앙 확대: NAFNet, 처음부터 학습(기준선). 입력: 센서 원본 5472×3648을 어파인 변환해 512×512로. 체크포인트: `PL_04_naf_20261106-083210.pth`, `PL_06_naf_20261106-083210.pth`. 소스: `PrivacyLensless/history_plot.py`; 산출물: `figs/history/03_raw_naf_crop.jpg`.
+
+![raw_cgnet full](assets/history/04_raw_cgnet_full.jpg)
+
+그림 H4a. 런 4, 전체 프레임: CGNet(CascadedGaze), 처음부터 학습. 입력: 센서 원본 5472×3648을 어파인 변환해 512×512로. 체크포인트: `PL_04_cgnet_20261106-124133.pth`, `PL_06_cgnet_20261106-124133.pth`. 소스: `PrivacyLensless/history_plot.py`; 산출물: `figs/history/04_raw_cgnet_full.jpg`.
+
+![raw_cgnet crop](assets/history/04_raw_cgnet_crop.jpg)
+
+그림 H4b. 런 4, 중앙 확대: CGNet(CascadedGaze), 처음부터 학습. 입력: 센서 원본 5472×3648을 어파인 변환해 512×512로. 체크포인트: `PL_04_cgnet_20261106-124133.pth`, `PL_06_cgnet_20261106-124133.pth`. 소스: `PrivacyLensless/history_plot.py`; 산출물: `figs/history/04_raw_cgnet_crop.jpg`.
+
+![raw_naf_s full](assets/history/05_raw_naf_s_full.jpg)
+
+그림 H5a. 런 5, 전체 프레임: 과적합 대응용 경량 NAFNet(1.75M 파라미터); 과소적합. 입력: 센서 원본 5472×3648을 어파인 변환해 512×512로. 체크포인트: `PL_04_naf_s_20261107-021421.pth`, `PL_06_naf_s_20261107-021421.pth`. 소스: `PrivacyLensless/history_plot.py`; 산출물: `figs/history/05_raw_naf_s_full.jpg`.
+
+![raw_naf_s crop](assets/history/05_raw_naf_s_crop.jpg)
+
+그림 H5b. 런 5, 중앙 확대: 과적합 대응용 경량 NAFNet(1.75M 파라미터); 과소적합. 입력: 센서 원본 5472×3648을 어파인 변환해 512×512로. 체크포인트: `PL_04_naf_s_20261107-021421.pth`, `PL_06_naf_s_20261107-021421.pth`. 소스: `PrivacyLensless/history_plot.py`; 산출물: `figs/history/05_raw_naf_s_crop.jpg`.
+
+![raw_naf_m full](assets/history/06_raw_naf_m_full.jpg)
+
+그림 H6a. 런 6, 전체 프레임: 중간 크기 NAFNet(11.6M 파라미터); 여전히 기본 NAFNet보다 낮음. 입력: 센서 원본 5472×3648을 어파인 변환해 512×512로. 체크포인트: `PL_04_naf_m_20261107-024530.pth`, `PL_06_naf_m_20261107-024530.pth`. 소스: `PrivacyLensless/history_plot.py`; 산출물: `figs/history/06_raw_naf_m_full.jpg`.
+
+![raw_naf_m crop](assets/history/06_raw_naf_m_crop.jpg)
+
+그림 H6b. 런 6, 중앙 확대: 중간 크기 NAFNet(11.6M 파라미터); 여전히 기본 NAFNet보다 낮음. 입력: 센서 원본 5472×3648을 어파인 변환해 512×512로. 체크포인트: `PL_04_naf_m_20261107-024530.pth`, `PL_06_naf_m_20261107-024530.pth`. 소스: `PrivacyLensless/history_plot.py`; 산출물: `figs/history/06_raw_naf_m_crop.jpg`.
+
+![raw_naf-me full](assets/history/07_raw_naf-me_full.jpg)
+
+그림 H7a. 런 7, 전체 프레임: NAFNet + 선형광 mixup(p 0.5) + EMA 0.999. 입력: 센서 원본 5472×3648을 어파인 변환해 512×512로. 체크포인트: `PL_04_naf-me_20261107-075705.pth`, `PL_06_naf-me_20261107-075705.pth`. 소스: `PrivacyLensless/history_plot.py`; 산출물: `figs/history/07_raw_naf-me_full.jpg`.
+
+![raw_naf-me crop](assets/history/07_raw_naf-me_crop.jpg)
+
+그림 H7b. 런 7, 중앙 확대: NAFNet + 선형광 mixup(p 0.5) + EMA 0.999. 입력: 센서 원본 5472×3648을 어파인 변환해 512×512로. 체크포인트: `PL_04_naf-me_20261107-075705.pth`, `PL_06_naf-me_20261107-075705.pth`. 소스: `PrivacyLensless/history_plot.py`; 산출물: `figs/history/07_raw_naf-me_crop.jpg`.
+
+![raw_naf-mef full](assets/history/08_raw_naf-mef_full.jpg)
+
+그림 H8a. 런 8, 전체 프레임: NAFNet + mixup + EMA + FFT 손실 0.2(raw 최고). 입력: 센서 원본 5472×3648을 어파인 변환해 512×512로. 체크포인트: `PL_04_naf-mef_20261107-075705.pth`, `PL_06_naf-mef_20261107-075705.pth`. 소스: `PrivacyLensless/history_plot.py`; 산출물: `figs/history/08_raw_naf-mef_full.jpg`.
+
+![raw_naf-mef crop](assets/history/08_raw_naf-mef_crop.jpg)
+
+그림 H8b. 런 8, 중앙 확대: NAFNet + mixup + EMA + FFT 손실 0.2(raw 최고). 입력: 센서 원본 5472×3648을 어파인 변환해 512×512로. 체크포인트: `PL_04_naf-mef_20261107-075705.pth`, `PL_06_naf-mef_20261107-075705.pth`. 소스: `PrivacyLensless/history_plot.py`; 산출물: `figs/history/08_raw_naf-mef_crop.jpg`.
+
+![recon256_naf-ef full](assets/history/09_recon256_naf-ef_full.jpg)
+
+그림 H9a. 런 9, 전체 프레임: NAFNet + EMA + FFT 손실, 256 Wiener recon. 입력: Wiener recon 256×256(nearest 2배로 표시). 체크포인트: `PL_recon04_naf-ef_20261107-174145.pth`, `PL_recon06_naf-ef_20261107-174145.pth`, `PL_recon07_naf-ef_20261107-174145.pth`. 소스: `PrivacyLensless/history_plot.py`; 산출물: `figs/history/09_recon256_naf-ef_full.jpg`.
+
+![recon256_naf-ef crop](assets/history/09_recon256_naf-ef_crop.jpg)
+
+그림 H9b. 런 9, 중앙 확대: NAFNet + EMA + FFT 손실, 256 Wiener recon. 입력: Wiener recon 256×256(nearest 2배로 표시). 체크포인트: `PL_recon04_naf-ef_20261107-174145.pth`, `PL_recon06_naf-ef_20261107-174145.pth`, `PL_recon07_naf-ef_20261107-174145.pth`. 소스: `PrivacyLensless/history_plot.py`; 산출물: `figs/history/09_recon256_naf-ef_crop.jpg`.
+
+![recon512_naf-ef full](assets/history/10_recon512_naf-ef_full.jpg)
+
+그림 H10a. 런 10, 전체 프레임: 같은 설정, 512 Wiener recon, 배치 4. 입력: Wiener recon 512×512. 체크포인트: `PL_recon512_04_naf-ef_20261108-054058.pth`, `PL_recon512_06_naf-ef_20261108-054058.pth`, `PL_recon512_07_naf-ef_20261108-054436.pth`. 소스: `PrivacyLensless/history_plot.py`; 산출물: `figs/history/10_recon512_naf-ef_full.jpg`.
+
+![recon512_naf-ef crop](assets/history/10_recon512_naf-ef_crop.jpg)
+
+그림 H10b. 런 10, 중앙 확대: 같은 설정, 512 Wiener recon, 배치 4. 입력: Wiener recon 512×512. 체크포인트: `PL_recon512_04_naf-ef_20261108-054058.pth`, `PL_recon512_06_naf-ef_20261108-054058.pth`, `PL_recon512_07_naf-ef_20261108-054436.pth`. 소스: `PrivacyLensless/history_plot.py`; 산출물: `figs/history/10_recon512_naf-ef_crop.jpg`.
+
 ## 한계
 
 - **512 결과는 시드 하나예요.** 배치 크기가 256 런과 다르고(4 vs 8), 최고점도 더 일러요(epoch 12–13).

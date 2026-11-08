@@ -92,6 +92,110 @@ PSNR (dB) / SSIM, seed 0. In the "512 decoder → 256" column, the 512 output is
 - **PSNR improves only for mask 0.5 (+0.45 dB). For 0.7 and 0.8, SSIM rises slightly while PSNR stays flat.** PSNR is dominated by low frequencies, so gains in fine detail barely change it.
 - **At 512, 0.5 and 0.7 coincide above 0.25 cycles/px, and 0.5 leads below that. 0.8 is lower by 0.05–0.1 from 0.1 to 0.45 cycles/px.**
 
+## All decoders in training order — full frame and center crop
+
+Every decoder trained in this project, in the order it was trained, drawn in one fixed layout. Columns: (input, output) for each mask distance, then ground truth. Rows: the same six test scenes as Figure 2. Each tile states its native resolution and each output its per-image PSNR.
+
+- **Full frame:** 512-px tiles. 512-px runs are shown 1:1; 256-px runs are shown ×2 nearest.
+- **Center crop:** the central 50% of the frame on 256-px tiles. 512-px runs are shown 1:1 (256 of 512 px); 256-px runs are shown ×2 nearest (128 of 256 px).
+- **Ground truth:** the COCO `sqcrop_1024` label, area-downsampled to the run's resolution.
+- **Raw runs:** the mask 0.8 data arrived after the raw runs, so they cover only 0.5 and 0.7.
+
+| # | Started | Input (resolution) | Run | PSNR 0.5 | PSNR 0.7 | PSNR 0.8 |
+|---|---|---|---|---|---|---|
+| 1 | 11-06 08:04 | raw sensor capture 5472×3648, affine-warped to 512×512 | NAFNet fine-tuned from an earlier Wiener-NAF checkpoint; stopped after epoch 0 when cold start was required | 18.22 (ep0) | 17.91 (ep0) | – |
+| 2 | 11-06 08:13 | raw sensor capture 5472×3648, affine-warped to 512×512 | Restormer (transformer), batch 2; stopped at epoch 5 (slow, behind NAFNet) | 18.84 (ep5) | 18.34 (ep5) | – |
+| 3 | 11-06 08:32 | raw sensor capture 5472×3648, affine-warped to 512×512 | NAFNet, cold start (baseline) | 19.79 (ep15) | 19.18 (ep19) | – |
+| 4 | 11-06 12:41 | raw sensor capture 5472×3648, affine-warped to 512×512 | CGNet (CascadedGaze), cold start | 19.73 (ep26) | 18.96 (ep14) | – |
+| 5 | 11-07 02:14 | raw sensor capture 5472×3648, affine-warped to 512×512 | light NAFNet (1.75M params) against overfitting; underfits | 17.99 (ep27) | 17.70 (ep29) | – |
+| 6 | 11-07 02:45 | raw sensor capture 5472×3648, affine-warped to 512×512 | mid NAFNet (11.6M params); still below full NAFNet | 18.50 (ep15) | 18.10 (ep17) | – |
+| 7 | 11-07 07:57 | raw sensor capture 5472×3648, affine-warped to 512×512 | NAFNet + linear-light mixup (p 0.5) + EMA 0.999 | 20.10 (ep25) | 19.56 (ep23) | – |
+| 8 | 11-07 07:57 | raw sensor capture 5472×3648, affine-warped to 512×512 | NAFNet + mixup + EMA + FFT loss 0.2 (best raw) | 20.19 (ep21) | 19.59 (ep23) | – |
+| 9 | 11-07 17:41 | Wiener recon 256×256 (shown ×2 nearest) | NAFNet + EMA + FFT loss, on Wiener recon at 256 | 21.17 (ep17) | 20.88 (ep16) | 20.38 (ep16) |
+| 10 | 11-08 05:40 | Wiener recon 512×512 | same recipe on Wiener recon at 512, batch 4 | 21.11 (ep13) | 20.41 (ep13) | 19.87 (ep11) |
+
+Best test-PSNR checkpoint of each run (dB). Raw and 512 PSNR are measured at 512, recon-256 at 256. Source: `PrivacyLensless/history_plot.py`; artifact: `figs/history/runs.csv`.
+
+![raw_naf_ft full](assets/history/01_raw_naf_ft_full.jpg)
+
+Figure H1a. Run 1, full frame: NAFNet fine-tuned from an earlier Wiener-NAF checkpoint; stopped after epoch 0 when cold start was required. Input: raw sensor capture 5472×3648, affine-warped to 512×512. Checkpoints: `PL_04_naf_ft_20261106-080416.pth`, `PL_06_naf_ft_20261106-080416.pth`. Source: `PrivacyLensless/history_plot.py`; artifact: `figs/history/01_raw_naf_ft_full.jpg`.
+
+![raw_naf_ft crop](assets/history/01_raw_naf_ft_crop.jpg)
+
+Figure H1b. Run 1, center crop: NAFNet fine-tuned from an earlier Wiener-NAF checkpoint; stopped after epoch 0 when cold start was required. Input: raw sensor capture 5472×3648, affine-warped to 512×512. Checkpoints: `PL_04_naf_ft_20261106-080416.pth`, `PL_06_naf_ft_20261106-080416.pth`. Source: `PrivacyLensless/history_plot.py`; artifact: `figs/history/01_raw_naf_ft_crop.jpg`.
+
+![raw_restormer full](assets/history/02_raw_restormer_full.jpg)
+
+Figure H2a. Run 2, full frame: Restormer (transformer), batch 2; stopped at epoch 5 (slow, behind NAFNet). Input: raw sensor capture 5472×3648, affine-warped to 512×512. Checkpoints: `PL_04_restormer_20261106-081330.pth`, `PL_06_restormer_20261106-081548.pth`. Source: `PrivacyLensless/history_plot.py`; artifact: `figs/history/02_raw_restormer_full.jpg`.
+
+![raw_restormer crop](assets/history/02_raw_restormer_crop.jpg)
+
+Figure H2b. Run 2, center crop: Restormer (transformer), batch 2; stopped at epoch 5 (slow, behind NAFNet). Input: raw sensor capture 5472×3648, affine-warped to 512×512. Checkpoints: `PL_04_restormer_20261106-081330.pth`, `PL_06_restormer_20261106-081548.pth`. Source: `PrivacyLensless/history_plot.py`; artifact: `figs/history/02_raw_restormer_crop.jpg`.
+
+![raw_naf full](assets/history/03_raw_naf_full.jpg)
+
+Figure H3a. Run 3, full frame: NAFNet, cold start (baseline). Input: raw sensor capture 5472×3648, affine-warped to 512×512. Checkpoints: `PL_04_naf_20261106-083210.pth`, `PL_06_naf_20261106-083210.pth`. Source: `PrivacyLensless/history_plot.py`; artifact: `figs/history/03_raw_naf_full.jpg`.
+
+![raw_naf crop](assets/history/03_raw_naf_crop.jpg)
+
+Figure H3b. Run 3, center crop: NAFNet, cold start (baseline). Input: raw sensor capture 5472×3648, affine-warped to 512×512. Checkpoints: `PL_04_naf_20261106-083210.pth`, `PL_06_naf_20261106-083210.pth`. Source: `PrivacyLensless/history_plot.py`; artifact: `figs/history/03_raw_naf_crop.jpg`.
+
+![raw_cgnet full](assets/history/04_raw_cgnet_full.jpg)
+
+Figure H4a. Run 4, full frame: CGNet (CascadedGaze), cold start. Input: raw sensor capture 5472×3648, affine-warped to 512×512. Checkpoints: `PL_04_cgnet_20261106-124133.pth`, `PL_06_cgnet_20261106-124133.pth`. Source: `PrivacyLensless/history_plot.py`; artifact: `figs/history/04_raw_cgnet_full.jpg`.
+
+![raw_cgnet crop](assets/history/04_raw_cgnet_crop.jpg)
+
+Figure H4b. Run 4, center crop: CGNet (CascadedGaze), cold start. Input: raw sensor capture 5472×3648, affine-warped to 512×512. Checkpoints: `PL_04_cgnet_20261106-124133.pth`, `PL_06_cgnet_20261106-124133.pth`. Source: `PrivacyLensless/history_plot.py`; artifact: `figs/history/04_raw_cgnet_crop.jpg`.
+
+![raw_naf_s full](assets/history/05_raw_naf_s_full.jpg)
+
+Figure H5a. Run 5, full frame: light NAFNet (1.75M params) against overfitting; underfits. Input: raw sensor capture 5472×3648, affine-warped to 512×512. Checkpoints: `PL_04_naf_s_20261107-021421.pth`, `PL_06_naf_s_20261107-021421.pth`. Source: `PrivacyLensless/history_plot.py`; artifact: `figs/history/05_raw_naf_s_full.jpg`.
+
+![raw_naf_s crop](assets/history/05_raw_naf_s_crop.jpg)
+
+Figure H5b. Run 5, center crop: light NAFNet (1.75M params) against overfitting; underfits. Input: raw sensor capture 5472×3648, affine-warped to 512×512. Checkpoints: `PL_04_naf_s_20261107-021421.pth`, `PL_06_naf_s_20261107-021421.pth`. Source: `PrivacyLensless/history_plot.py`; artifact: `figs/history/05_raw_naf_s_crop.jpg`.
+
+![raw_naf_m full](assets/history/06_raw_naf_m_full.jpg)
+
+Figure H6a. Run 6, full frame: mid NAFNet (11.6M params); still below full NAFNet. Input: raw sensor capture 5472×3648, affine-warped to 512×512. Checkpoints: `PL_04_naf_m_20261107-024530.pth`, `PL_06_naf_m_20261107-024530.pth`. Source: `PrivacyLensless/history_plot.py`; artifact: `figs/history/06_raw_naf_m_full.jpg`.
+
+![raw_naf_m crop](assets/history/06_raw_naf_m_crop.jpg)
+
+Figure H6b. Run 6, center crop: mid NAFNet (11.6M params); still below full NAFNet. Input: raw sensor capture 5472×3648, affine-warped to 512×512. Checkpoints: `PL_04_naf_m_20261107-024530.pth`, `PL_06_naf_m_20261107-024530.pth`. Source: `PrivacyLensless/history_plot.py`; artifact: `figs/history/06_raw_naf_m_crop.jpg`.
+
+![raw_naf-me full](assets/history/07_raw_naf-me_full.jpg)
+
+Figure H7a. Run 7, full frame: NAFNet + linear-light mixup (p 0.5) + EMA 0.999. Input: raw sensor capture 5472×3648, affine-warped to 512×512. Checkpoints: `PL_04_naf-me_20261107-075705.pth`, `PL_06_naf-me_20261107-075705.pth`. Source: `PrivacyLensless/history_plot.py`; artifact: `figs/history/07_raw_naf-me_full.jpg`.
+
+![raw_naf-me crop](assets/history/07_raw_naf-me_crop.jpg)
+
+Figure H7b. Run 7, center crop: NAFNet + linear-light mixup (p 0.5) + EMA 0.999. Input: raw sensor capture 5472×3648, affine-warped to 512×512. Checkpoints: `PL_04_naf-me_20261107-075705.pth`, `PL_06_naf-me_20261107-075705.pth`. Source: `PrivacyLensless/history_plot.py`; artifact: `figs/history/07_raw_naf-me_crop.jpg`.
+
+![raw_naf-mef full](assets/history/08_raw_naf-mef_full.jpg)
+
+Figure H8a. Run 8, full frame: NAFNet + mixup + EMA + FFT loss 0.2 (best raw). Input: raw sensor capture 5472×3648, affine-warped to 512×512. Checkpoints: `PL_04_naf-mef_20261107-075705.pth`, `PL_06_naf-mef_20261107-075705.pth`. Source: `PrivacyLensless/history_plot.py`; artifact: `figs/history/08_raw_naf-mef_full.jpg`.
+
+![raw_naf-mef crop](assets/history/08_raw_naf-mef_crop.jpg)
+
+Figure H8b. Run 8, center crop: NAFNet + mixup + EMA + FFT loss 0.2 (best raw). Input: raw sensor capture 5472×3648, affine-warped to 512×512. Checkpoints: `PL_04_naf-mef_20261107-075705.pth`, `PL_06_naf-mef_20261107-075705.pth`. Source: `PrivacyLensless/history_plot.py`; artifact: `figs/history/08_raw_naf-mef_crop.jpg`.
+
+![recon256_naf-ef full](assets/history/09_recon256_naf-ef_full.jpg)
+
+Figure H9a. Run 9, full frame: NAFNet + EMA + FFT loss, on Wiener recon at 256. Input: Wiener recon 256×256 (shown ×2 nearest). Checkpoints: `PL_recon04_naf-ef_20261107-174145.pth`, `PL_recon06_naf-ef_20261107-174145.pth`, `PL_recon07_naf-ef_20261107-174145.pth`. Source: `PrivacyLensless/history_plot.py`; artifact: `figs/history/09_recon256_naf-ef_full.jpg`.
+
+![recon256_naf-ef crop](assets/history/09_recon256_naf-ef_crop.jpg)
+
+Figure H9b. Run 9, center crop: NAFNet + EMA + FFT loss, on Wiener recon at 256. Input: Wiener recon 256×256 (shown ×2 nearest). Checkpoints: `PL_recon04_naf-ef_20261107-174145.pth`, `PL_recon06_naf-ef_20261107-174145.pth`, `PL_recon07_naf-ef_20261107-174145.pth`. Source: `PrivacyLensless/history_plot.py`; artifact: `figs/history/09_recon256_naf-ef_crop.jpg`.
+
+![recon512_naf-ef full](assets/history/10_recon512_naf-ef_full.jpg)
+
+Figure H10a. Run 10, full frame: same recipe on Wiener recon at 512, batch 4. Input: Wiener recon 512×512. Checkpoints: `PL_recon512_04_naf-ef_20261108-054058.pth`, `PL_recon512_06_naf-ef_20261108-054058.pth`, `PL_recon512_07_naf-ef_20261108-054436.pth`. Source: `PrivacyLensless/history_plot.py`; artifact: `figs/history/10_recon512_naf-ef_full.jpg`.
+
+![recon512_naf-ef crop](assets/history/10_recon512_naf-ef_crop.jpg)
+
+Figure H10b. Run 10, center crop: same recipe on Wiener recon at 512, batch 4. Input: Wiener recon 512×512. Checkpoints: `PL_recon512_04_naf-ef_20261108-054058.pth`, `PL_recon512_06_naf-ef_20261108-054058.pth`, `PL_recon512_07_naf-ef_20261108-054436.pth`. Source: `PrivacyLensless/history_plot.py`; artifact: `figs/history/10_recon512_naf-ef_crop.jpg`.
+
 ## Limitations
 
 - **The 512 results come from one seed.** Batch size differs from the 256 runs (4 vs 8), and the runs peak earlier (epoch 12–13).
