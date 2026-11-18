@@ -4,6 +4,8 @@
 
 **Answer in one figure.** Figure 1 compares, on the same specimens, data made by a single-reflection model (F) with data made by a rigorous multiple-scattering solver (R). GSS-FPM beats phase retrieval (PR) on every set and on both kinds of data. Multiple scattering raises the GSS-FPM error 1.5× on 1D edges, 1.7× on non-periodic 2D specimens and 2.0× on dense 2D cells. On 1D edges no height lands on the wrong λ/2 branch. On 2D specimens with the film, wrong-branch errors appear (2 of 4 and 1 of 6 cases).
 
+**Other published methods (Section 6).** Three published reconstruction families were run on the same images. FPT-style PR and height-parameterised PR beat PR; FPM-INR does not. Height-parameterised PR started from GSS-FPM's own λ/2 starts matches GSS-FPM on 1D edges (R data 4.6 vs 6.2 nm), but not in 2D (v5 R data 57 vs 18 nm, branch errors in 5 vs 1 of 6 cases).
+
 ![Summary](assets/fig7_summary.png)
 
 **Figure 1.** Geometric-mean height RMSE per specimen set, PR + unwrap (orange) versus GSS-FPM (blue). Left: single-reflection data (F). Right: multiple-scattering data (R). White numbers: cases with a branch error, meaning more than 1 % of the evaluated field is off by more than λ/4 = 117 nm. Source: `research/build_gss_fpm_multiscatter_report_20261117.py` (`fig_summary`). Artifact: `reports/gss_fpm_multiscatter_20261117/figures/fig7_summary.png`. Numbers: `reports/gss_fpm_multiscatter_20261117/numbers.json`.
@@ -11,7 +13,7 @@
 | Set | Data | PR + unwrap (nm) | GSS-FPM (nm) | GSS-FPM R/F | Branch-error cases, PR / GSS-FPM |
 |---|---|---:|---:|---:|---|
 | D1: 1D edges, 24 cases, BF+DF | F | 14.5 | **4.08** | | 3 / 0 |
-| | R | 11.1 | **6.17** | 1.51 | 3 / 0 |
+| | R | 11.0 | **6.17** | 1.51 | 3 / 0 |
 | D2: dense 2D cells, 4 cases, BF+DF (descriptive) | F | 73.0 | **17.5** | | 3 / 0 |
 | | R | 52.3 | **35.1** | 2.01 | 2 / 2 |
 | v5: 2D phase-hard, 6 cases, BF only | F | 72.9 | **11.0** | | 5 / 0 |
@@ -156,7 +158,7 @@ Gauge and frame rules:
   - edge band 8.9 → 13.8 nm;
   - plateaus 1.09 → 0.77 nm, i.e. not worse.
 - Per case, R/F ranges from 0.72 to 3.41, and R is worse on 16 of 24 cases. By family, R/F is 1.18 for blocks, 2.20 for stairs and 1.34 for double blocks. The extra R error sits on the walls.
-- PR is 14.5 / 11.1 nm with branch errors in 3 cases on each data version.
+- PR is 14.5 / 11.0 nm with branch errors in 3 cases on each data version.
 
 ![D2 3D](assets/fig5_d2_3d.jpg)
 
@@ -195,11 +197,76 @@ Absolute D2 accuracy is therefore not claimed; only the same-pipeline R/F ratio 
 - The FDFD and ray pictures cover one D1 specimen in s-polarisation.
 
 **Next.**
-- A non-local film treatment in the forward model.
-- Running other published reconstruction methods on the same data as further baselines (a survey is in progress).
+- A non-local edge treatment in the forward model: a rigorous edge-response table (edge domain decomposition), in progress.
+- Other published methods are in Section 6. Height-parameterised PR with GSS-FPM's starts matches GSS-FPM on 1D edges, so the case for the facet physics rests on 2D specimens.
+
+## 6. Other published methods on the same images
+
+No published method models per-facet film reflectance, shadowing or the λ/2 branch. Every runnable method uses the same thin-object model as our PR: one complex reflectance seen through the pupil. The methods differ in how the object is represented, which loss is used and how the result is regularised. We ran the three closest families on exactly the images that GSS-FPM and PR saw.
+
+- **FPT configuration** (Wang et al., *Opt. Express* 2023: the reflective BF+DF wafer setup at NA 0.28).
+  - No code was released, so we implemented it.
+  - Complex 40 × 40 object and an amplitude (√I) loss.
+  - Regulariser: TV on |O| plus circular TV on the phase (Shen et al., IEEE TCI 2026).
+  - Height after unwrapping, as in PR.
+- **FPM-INR** (Zhou et al., *Optica* 2023), a 2D port of the public network `hwzhou2020/FPM_INR`.
+  - A feature grid plus a small MLP gives amplitude and phase.
+  - Smooth-L1 amplitude loss, one LED per step.
+  - The phase output is continuous, so height needs no unwrapping.
+- **Height-parameterised PR** (Wittwer et al., *Optica* 2022; Gao & Cao, *Opt. Lett.* 2022).
+  - The height h is fitted directly through exp(−i4πh/λ), with TV(h).
+  - Starts: a flat start plus the ten ground-truth-free λ/2 branch starts that GSS-FPM itself uses.
+  - It is the closest ablation of GSS-FPM: the same starts, but thin-object physics on a pixel height map.
+
+**Fairness.**
+- All three use PR's forward operator: known pupil, the same fitting LEDs and images, pixel integration, 40 × 40 grid.
+- Each start is chosen by the method's own training objective on the fitting LEDs. No truth is used for that choice.
+- Each method has one hyperparameter: the regulariser weight for FPT and height-PR, the feature-grid size for FPM-INR.
+  - It was tuned on the *truth* of 12 rigorous D1 cases (replicates 01–02). The chosen values are FPT 1e-5, height-PR 1e-2 and FPM-INR 10.
+  - FPT and height-PR first chose the largest value tried. Their grids were extended by two values and the choice became interior. This was logged before any other reference was opened.
+  - The tuning favours the baselines, since GSS-FPM was never tuned on rigorous data. D1 is therefore also reported on the 12 held-back cases.
+- On a smoke case all three reach PR's fitting loss (FPT 0.00095, height-PR 0.00095, FPM-INR 0.00097, PR 0.00095).
+- FPT's start from the normal-incidence image went non-finite on some cases: zero amplitude makes the phase-TV gradient undefined. A rule logged before the affected jobs were evaluated drops such a start, and the other two FPT starts are used.
+
+![Other methods](assets/fig10_baselines.png)
+
+**Figure 10.** Geometric-mean height RMSE per set for the five methods, on single-reflection (left) and multiple-scattering (right) data. White numbers: cases with a branch error. Source: `research/gss_fpm_q4_figure.py` (`fig_bars`); numbers: `runs/gss_fpm_baselines_2026-11-18/summary.json`, written by `research/gss_fpm_q4_baselines.py summary`. Artifact: `runs/gss_fpm_baselines_2026-11-18/figures/fig10_baselines.png`.
+
+| Multiple-scattering (R) data, nm (branch-error cases) | D1, 24 | D1, 12 held back | D2, 4 (descriptive) | v5, 6 |
+|---|---:|---:|---:|---:|
+| GSS-FPM (ours) | 6.2 (0) | 6.9 (0) | **35.1** (2) | **18.2** (1) |
+| PR + unwrap | 11.0 (3) | 12.8 (2) | 52.3 (2) | 76.0 (5) |
+| FPT configuration | 8.7 (2) | 10.3 (0) | 50.5 (2) | 67.7 (5) |
+| FPM-INR | 28.1 (14) | 40.7 (8) | 56.0 (2) | 93.3 (6) |
+| Height-param. PR, GSS-FPM's starts | **4.6** (0) | **4.6** (0) | 40.0 (2) | 57.4 (5) |
+
+On single-reflection (F) data the order is the same: D1 GSS-FPM 4.1, height-PR 4.2, FPT 9.1, PR 14.5, FPM-INR 28.0 nm; v5 11.0 / 39.4 / 47.2 / 72.9 / 67.0 nm.
+
+![v5 other methods](assets/fig11_v5_baselines_3d.jpg)
+
+**Figure 11.** v5, R data, the median GSS-FPM case (`offset_checker_hard-01`). Top: surfaces; bottom: error maps clipped at ±40 nm. All three baselines turn the 180 nm-deep pits into bumps, which is the wrong λ/2 branch (about 115 nm RMSE). GSS-FPM keeps the pits (15.6 nm). Source: `research/gss_fpm_q4_figure.py` (`fig_surfaces`, reusing `research/gss_fpm_film2d_q3_figure.py`). Artifact: `runs/gss_fpm_baselines_2026-11-18/figures/fig11_v5_baselines_3d.png`.
+
+![D1 other methods](assets/fig12_d1_baselines_3d.jpg)
+
+**Figure 12.** D1, R data, the median GSS-FPM case (`edge_block-04`). GSS-FPM 6.9 nm, height-PR 6.6 nm, FPT 8.8 nm and PR 10.7 nm. FPM-INR misses the block entirely (122.8 nm, wrong branch). Artifact: `runs/gss_fpm_baselines_2026-11-18/figures/fig11_d1_baselines_3d.png`.
+
+**Reading.**
+- **FPT and height-PR beat PR on every set's R data; FPM-INR beats it on none.** FPM-INR's continuous phase avoids unwrapping, but it lands on the wrong λ/2 branch in 14 of 24 D1 cases. A continuous phase is not the same as the correct branch.
+- **On 1D edges, height-PR matches GSS-FPM.**
+  - R data: 4.6 vs 6.2 nm, and 4.6 vs 6.9 nm on the 12 held-back cases. F data: 4.2 vs 4.1 nm. Neither has branch errors.
+  - Height-PR uses GSS-FPM's own λ/2 starts and a TV prior tuned on D1 truth. On 1D edges, most of GSS-FPM's lead over PR therefore comes from its branch starts and selection, not from the facet physics.
+- **In 2D the facet physics decides.**
+  - v5 R data: GSS-FPM 18.2 nm with one branch-error case; the best baseline (height-PR) 57.4 nm with five of six.
+  - D2 R data (descriptive): GSS-FPM 35.1 nm, height-PR 40.0 nm, both with 2 of 4 branch-error cases.
+- **Pre-registered verdicts.**
+  - "Beats PR" on R data: FPT and height-PR on all three sets; FPM-INR on none.
+  - "Approaches GSS-FPM" (within 1.2×): height-PR on D1 (lower) and on D2; no baseline on v5.
+
+**Caveats.** FPT is our implementation of a configuration without released code. FPM-INR was trained ×6 longer than the repository's schedule, because our camera has only 10 × 10 pixels. The baselines' hyperparameters were tuned on D1 truth. The sets are small. Protocol: `research/gss_fpm_q4_baselines_protocol_2026-11-18.md`.
 
 ## Reproduction
 
 - Data, inversions and exports: `research/gss_fpm_q3.py`, `research/gss_fpm_q3_data.py`, `runs/gss_fpm_film2d_2026-11-17/q3/` (protocol `research/gss_fpm_film2d_protocol_2026-11-17.md`).
 - Rigorous solver and specimens: `research/gss_fpm_rev_rigorous.py`, `research/slide470v5_rigorous.py`, `research/slide470v5_fmmax.py`.
 - Report figures and numbers: `python research/build_gss_fpm_multiscatter_report_20261117.py`, which also calls `research/fdfd_d1_fieldmap.py` outputs and `research/ray_paths_d1.py`.
+- Other methods (Section 6): `research/gss_fpm_q4_baselines.py` (stages launch / worker / evaluate / summary; protocol `research/gss_fpm_q4_baselines_protocol_2026-11-18.md`), outputs `runs/gss_fpm_baselines_2026-11-18/`, figures `python research/gss_fpm_q4_figure.py`.
