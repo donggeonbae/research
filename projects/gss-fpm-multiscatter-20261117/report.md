@@ -4,6 +4,8 @@
 
 **Answer in one figure.** Figure 1 compares, on the same specimens, data made by a single-reflection model (F) with data made by a rigorous multiple-scattering solver (R). GSS-FPM beats phase retrieval (PR) on every set and on both kinds of data. Multiple scattering raises the GSS-FPM error 1.5× on 1D edges, 1.7× on non-periodic 2D specimens and 2.0× on dense 2D cells. On 1D edges no height lands on the wrong λ/2 branch. On 2D specimens with the film, wrong-branch errors appear (2 of 4 and 1 of 6 cases).
 
+**Rigorous edge table (Section 7).** Adding a correction built from rigorous single-edge solves halves the GSS-FPM error on 1D edges (R data 6.2 → 3.1 nm, now below height-parameterised PR's 4.6 nm) and lowers it on dense 2D cells (35 → 25 nm). On the BF-only 2D set v5 it makes things worse (18 → 23 nm), so for now it is for 1D edges only.
+
 **Other published methods (Section 6).** Three published reconstruction families were run on the same images. FPT-style PR and height-parameterised PR beat PR; FPM-INR does not. Height-parameterised PR started from GSS-FPM's own λ/2 starts matches GSS-FPM on 1D edges (R data 4.6 vs 6.2 nm), but not in 2D (v5 R data 57 vs 18 nm, branch errors in 5 vs 1 of 6 cases).
 
 ![Summary](assets/fig7_summary.png)
@@ -197,7 +199,7 @@ Absolute D2 accuracy is therefore not claimed; only the same-pipeline R/F ratio 
 - The FDFD and ray pictures cover one D1 specimen in s-polarisation.
 
 **Next.**
-- A non-local edge treatment in the forward model: a rigorous edge-response table (edge domain decomposition), in progress.
+- A non-local edge treatment in the forward model: the rigorous edge-response table of Section 7. It halves the 1D error and lowers D2, but not v5.
 - Other published methods are in Section 6. Height-parameterised PR with GSS-FPM's starts matches GSS-FPM on 1D edges, so the case for the facet physics rests on 2D specimens.
 
 ## 6. Other published methods on the same images
@@ -255,6 +257,7 @@ On single-reflection (F) data the order is the same: D1 GSS-FPM 4.1, height-PR 4
 - **On 1D edges, height-PR matches GSS-FPM.**
   - R data: 4.6 vs 6.2 nm, and 4.6 vs 6.9 nm on the 12 held-back cases. F data: 4.2 vs 4.1 nm. Neither has branch errors.
   - Height-PR uses GSS-FPM's own λ/2 starts and a TV prior tuned on D1 truth. On 1D edges, most of GSS-FPM's lead over PR therefore comes from its branch starts and selection, not from the facet physics.
+  - With the rigorous edge table of Section 7, GSS-FPM drops to 3.1 nm on these data and is clearly ahead of height-PR.
 - **In 2D the facet physics decides.**
   - v5 R data: GSS-FPM 18.2 nm with one branch-error case; the best baseline (height-PR) 57.4 nm with five of six.
   - D2 R data (descriptive): GSS-FPM 35.1 nm, height-PR 40.0 nm, both with 2 of 4 branch-error cases.
@@ -264,9 +267,82 @@ On single-reflection (F) data the order is the same: D1 GSS-FPM 4.1, height-PR 4
 
 **Caveats.** FPT is our implementation of a configuration without released code. FPM-INR was trained ×6 longer than the repository's schedule, because our camera has only 10 × 10 pixels. The baselines' hyperparameters were tuned on D1 truth. The sets are small. Protocol: `research/gss_fpm_q4_baselines_protocol_2026-11-18.md`.
 
+## 7. A rigorous edge-response table in the forward model
+
+**Why not add more bounces to the facet model.** A ray model of multiple bounces holds only when features are many wavelengths deep and wide. Here the relief is shallower than λ/2 ($kd \le 2.7$ for the deepest 200 nm step), so no regime exists where an extra-bounce facet term would be physically valid. Instead, the multiple-scattering response of an edge is taken from rigorous solves and added to the facet model as a correction.
+
+**How the table is built (edge domain decomposition).**
+- Rigorous 1D solves (FMMAX, Li formulation, 112 orders, 10 nm slices, conformal 80 nm oxide) of periodic two-width block specimens.
+  - Step height $\Delta z$: 8 values from 25 to 200 nm. Edge taper: 50, 150 and 300 nm.
+  - All 93 LEDs: half are solved, the other half follow by mirror symmetry.
+- Two block widths separate, per diffraction order, the response of the rising edge from that of the falling edge. The specular order cannot be separated this way, so it is interpolated from orders ±1 and ±2.
+- The stored quantity is the residual: rigorous minus the facet model on the solver's own sliced geometry. It is kept as a 2 × 2 polarisation (Jones) matrix per LED and order, referred to the edge centre. Mirror and transpose symmetries give the other three edge orientations.
+- Applying it to a height map:
+  - Every run of same-sign height jumps along a row or a column is one edge, with height $\Delta z$ and width $\sigma$ (the jumps' second moment).
+  - Its residual is looked up (cubic in $\Delta z$ with zero residual at $\Delta z = 0$, linear in $\sigma$), placed at the edge with the edge's phase, and summed over edges.
+  - A 2D map is treated as rows and columns of 1D edges (strip approximation); corners get no extra term.
+- In the inversion the term is a defect correction. It is computed from the current height without a gradient, and recomputed whenever the height has moved by more than 3 nm.
+  - Stage A (choosing two of the ten λ/2 starts) is shared with the current pipeline. Stage B and the final pick by lowest FIT use the corrected forward.
+  - The base is the *unpolarised* facet model (the mean of s and p), so the table is compared with both the poster model (s only) and the unpolarised model without the table.
+
+**Checks before any height result.**
+- C1: on a flat film, the facet base equals the rigorous specular reflection to within $10^{-6}$.
+- Specimens not used in the table, image NRMSE against rigorous (unpolarised → with table):
+  - two separate edges: BF 3.4 / 5.8 % → 0.2 / 0.3 %, DF 8.6 / 22.1 % → 0.7 / 0.6 %;
+  - blocks at untabulated heights and tapers: BF 2.7 / 2.4 % → 0.3 / 0.6 %, DF 9.3 / 7.8 % → 2.9 / 2.4 %.
+- Grid check: images from the 104- and the 208-cell tables agree within the 2.5 % noise floor.
+
+![Edge table, forward](assets/fig13_edge_table_forward.png)
+
+**Figure 13.** Forward test (G1-E): clean images on the truth heights, pooled error against the rigorous images. Blue is the poster model (s-polarised facets), green the unpolarised facet model, pink (hatched) the unpolarised model plus the edge table. Source: `research/gss_fpm_edge_table_figure.py` (`fig_forward`). Numbers: `runs/gss_fpm_edge_table_2026-11-18/g1_e_grid104.json`, written by `research/gss_fpm_edge_table.py g1`. Artifact: `runs/gss_fpm_edge_table_2026-11-18/figures/fig13_edge_table_forward.png`.
+
+- **The registered forward test passes.** On the D2 validation cells the table cuts the unpolarised error by 51 % (BF) and 48 % (DF); on D1 it cuts both (BF 3.4 → 0.8 %, DF 10.9 → 2.6 %).
+- **One exception.** On the D2 training cells (12 LEDs) the DF error rises from 17 to 23 %.
+
+![Edge table, heights](assets/fig14_edge_table_heights.png)
+
+**Figure 14.** Heights from the rigorous (R) data with the three forwards (G2-E). Left: geometric-mean height RMSE per set; white numbers count cases with a branch error. Right: D1 per case, poster model versus edge table; squares are the 12 held-out cases. Source: `research/gss_fpm_edge_table_figure.py` (`fig_heights`). Numbers: `runs/gss_fpm_edge_table_2026-11-18/g2_e.json`, written by `research/gss_fpm_edge_table_g2.py`. Artifact: `runs/gss_fpm_edge_table_2026-11-18/figures/fig14_edge_table_heights.png`.
+
+| R data, nm (branch-error cases) | D1, 24 | D1, 12 held back | D2, 4 (descriptive) | v5, 6 |
+|---|---:|---:|---:|---:|
+| Facet model (poster, s-pol.) | 6.17 (0) | 6.87 (0) | 35.1 (2) | **18.2** (1) |
+| Facet model, unpolarised | 6.09 (0) | 6.67 (0) | 33.7 (2) | 18.4 (2) |
+| Unpolarised + edge table | **3.12** (0) | **3.18** (0) | **25.4** (2) | 23.2 (3) |
+| Height-param. PR, GSS-FPM's starts (Section 6) | 4.6 (0) | 4.6 (0) | 40.0 (2) | 57.4 (5) |
+
+![D1 profiles](assets/fig15_d1_profiles.png)
+
+**Figure 15.** Two D1 cases, height profiles across the edges: truth (black), poster model (blue), edge table (pink). Bottom: error, clipped at ±40 nm. Source: `research/gss_fpm_edge_table_figure.py` (`fig_profiles`), heights from `runs/gss_fpm_edge_df_2026-11-17/inversion/<arm>/evaluation/<case>__ts4ws2-hard-fused-r5-g208c0__height.npz`. Artifact: `runs/gss_fpm_edge_table_2026-11-18/figures/fig15_d1_profiles.png`.
+
+**Reading.**
+- **1D edges: the error halves.** 6.17 → 3.12 nm over 24 cases and 6.87 → 3.18 nm on the 12 held-out cases, lower on 20 of 24 cases, with no branch errors. The four cases that got worse are easy blocks (2.6–3.1 → 3.0–3.5 nm).
+  - The gain is all at the edges: edge band 13.8 → 6.8 nm, plateaus 0.77 → 0.74 nm.
+  - Figure 15 shows why. The poster model puts walls one or two 62.5 nm cells away from the truth; with the table they sit in place.
+  - GSS-FPM is now ahead of height-parameterised PR on 1D edges (3.1 vs 4.6 nm). Section 6 found the two tied there, so with the table the facet physics pays off in 1D too.
+- **Dense 2D cells (D2): lower but not solved.** 35.1 → 25.4 nm; the quad cell drops 18.2 → 7.9 nm. Branch errors are unchanged: the rounded cell is on the wrong branch over 36–42 % of its field in every arm.
+- **v5 (2D, BF only): worse.** 18.2 → 23.2 nm, with branch-error cases 1 → 3 (all small, at most 6.3 % of the field).
+  - Both stage-B starts get worse, and the corrected model's own FIT rises (e.g. 0.0023 → 0.0030 on `offset_checker_hard-01`). The corrected forward fits these data worse, so the start selection is not the cause.
+  - v5 is the one set the table was never tested on in the forward: rigorous records exist for one v5 specimen and 16 LEDs only.
+  - Possible causes, none tested yet:
+    - no corner term in the strip approximation;
+    - the interpolated specular order, which carries most of a BF-only signal;
+    - the 180 nm pits, near the top of the table's 200 nm range;
+    - v5's own reference error (10–25 %).
+- **Cost.** One stage-B run takes 1.9× (v5) to 2.5× (D2) as long as with the poster model; most of that is the unpolarised base, which computes s and p separately. Stage A is unchanged, so a whole specimen takes 11–27 % longer.
+
+**Verdict.**
+- Use the table for 1D edge specimens.
+- Do not use it on 2D specimens until a 2D forward check passes.
+
+**Caveats.**
+- The table and the R data come from the same solver family (FMMAX), so the D1 gain may partly reflect matching that solver. FDFD agrees with the D1 FMMAX orders within 1.9 / 3.7 % (Section 2), far less than the 49 % gain, but an independent test (another solver, or measured data) is still needed.
+- The sets are small (24 / 4 / 6), and D2 is descriptive.
+- Protocol and log: `research/gss_fpm_edge_table_protocol_2026-11-18.md`.
+
 ## Reproduction
 
 - Data, inversions and exports: `research/gss_fpm_q3.py`, `research/gss_fpm_q3_data.py`, `runs/gss_fpm_film2d_2026-11-17/q3/` (protocol `research/gss_fpm_film2d_protocol_2026-11-17.md`).
 - Rigorous solver and specimens: `research/gss_fpm_rev_rigorous.py`, `research/slide470v5_rigorous.py`, `research/slide470v5_fmmax.py`.
 - Report figures and numbers: `python research/build_gss_fpm_multiscatter_report_20261117.py`, which also calls `research/fdfd_d1_fieldmap.py` outputs and `research/ray_paths_d1.py`.
 - Other methods (Section 6): `research/gss_fpm_q4_baselines.py` (stages launch / worker / evaluate / summary; protocol `research/gss_fpm_q4_baselines_protocol_2026-11-18.md`), outputs `runs/gss_fpm_baselines_2026-11-18/`, figures `python research/gss_fpm_q4_figure.py`.
+- Edge table (Section 7): `research/gss_fpm_edge_table.py` (stages solve / base / build / checks / g1), the forward hook in `research/gss_fpm_rev_forward.py` (`edge_table`), inversion arms in `research/gss_fpm_d1x.py`, `research/gss_fpm_q3.py` and `research/slide470v5_bf_queue.py`, summary `research/gss_fpm_edge_table_g2.py`, figures `python research/gss_fpm_edge_table_figure.py`; outputs `runs/gss_fpm_edge_table_2026-11-18/`.
